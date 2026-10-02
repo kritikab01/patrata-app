@@ -4,7 +4,7 @@ export function formatINR(value: number | null | undefined): string {
   const negative = rounded < 0;
   const abs = Math.abs(rounded);
   const s = abs.toString();
-  let lastThree = s.slice(-3);
+  const lastThree = s.slice(-3);
   const otherNumbers = s.slice(0, -3);
   const formatted =
     otherNumbers !== ""

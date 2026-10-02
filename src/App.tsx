@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import type { Product, FormState, ScoreResult, ScoreBody, TabKey } from "./types";
 import { getHealth, getProducts, postScore, getApplication, getReviewQueue } from "./api";
 import { generateRequestId, num } from "./utils";
@@ -558,7 +558,7 @@ export default function App() {
         {activeTab === "dashboard" && <Dashboard onOpenApplication={openApplication} />}
 
         {/* REVIEW TAB */}
-        {activeTab === "review" && <ReviewQueue onOpenApplication={openApplication} />}
+        {activeTab === "review" && <ReviewQueue />}
 
         {/* BATCH TAB */}
         {activeTab === "batch" && <Batch />}

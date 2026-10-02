@@ -327,15 +327,11 @@ function FinalDecisionCard({
   );
 }
 
-export function ReviewQueue({
-  onOpenApplication,
-}: {
-  onOpenApplication: (id: string) => void;
-}) {
+export function ReviewQueue() {
   const [queueState, setQueueState] = useState<QueueState>({ status: "loading" });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedResult, setSelectedResult] = useState<ScoreResult | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
   const loadQueue = useCallback(async () => {
