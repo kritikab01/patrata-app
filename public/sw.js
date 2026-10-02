@@ -1,55 +1,87 @@
-/* Patrata service worker: makes the app installable and opens offline.
-   Pages are network-first (always the latest version); only built, hashed
-   files in /assets and the icons are cached. Engine/API calls are never cached. */
-const CACHE_NAME = "patrata-shell-v4";
-const SHELL = ["/", "/manifest.json", "/icon.svg", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
+const CACHE_NAME = "patrata-shell-v3";
+const SHELL_ASSETS = [
+  "/",
+  "/index.html",
+  "/manifest.json",
+  "/icon.svg",
+  "/apple-touch-icon.png",
+  "/icon-192.png",
+  "/icon-512.png"
+];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(SHELL)).catch(() => {}));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(SHELL_ASSETS).catch((err) => {
+        console.warn("Service worker precaching partial failure:", err);
+      });
+    })
+  );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+      );
+    })
   );
   self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
-  const req = event.request;
-  if (req.method !== "GET") return;
-  const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return; // engine, fonts, EmailJS: never touched
-
-  // Pages: network first, cached copy only when offline.
-  if (req.mode === "navigate") {
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put("/", copy));
-          return res;
-        })
-        .catch(() => caches.match("/"))
-    );
+  // Only handle GET requests
+  if (event.request.method !== "GET") {
     return;
   }
 
-  // Built files and icons only (hashed names never change, so cache-first is safe).
-  const cacheable = url.pathname.startsWith("/assets/") || SHELL.includes(url.pathname);
-  if (!cacheable) return;
+  const url = new URL(event.request.url);
+
+  // CRITICAL RULE: NEVER cache requests to patrata.onrender.com or /api/* routes
+  if (
+    url.hostname.includes("patrata.onrender.com") ||
+    url.pathname.startsWith("/api") ||
+    url.pathname.startsWith("/api/")
+  ) {
+    return;
+  }
+
+  // Network-first with cache fallback for app shell assets
   event.respondWith(
-    caches.match(req).then(
-      (hit) =>
-        hit ||
-        fetch(req).then((res) => {
-          if (res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then((c) => c.put(req, copy));
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        // Fetch update in background
+        fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
+            }
+          })
+          .catch(() => {
+            /* ignore background fetch failures when offline */
+          });
+        return cachedResponse;
+      }
+
+      return fetch(event.request)
+        .then((response) => {
+          if (!response || response.status !== 200) {
+            return response;
           }
-          return res;
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+          return response;
         })
-    )
+        .catch(() => {
+          // If offline and navigating to a page, serve the cached root /
+          if (event.request.mode === "navigate") {
+            return caches.match("/");
+          }
+        });
+    })
   );
 });

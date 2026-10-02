@@ -205,10 +205,7 @@ export type ReviewBody = {
   reviewer: string;
 };
 
-export type AppMode = "borrower" | "desk";
-export type BorrowerTabKey = "home" | "check" | "tools" | "checks" | "help";
-export type DeskTabKey = "dashboard" | "review" | "batch" | "compare" | "model";
-export type TabKey = BorrowerTabKey | DeskTabKey | "assistant";
+export type TabKey = "check" | "dashboard" | "review" | "batch" | "compare" | "assistant" | "model";
 
 export type ModelMetrics = {
   roc_auc?: number | null;
@@ -281,7 +278,6 @@ export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  lang?: "en" | "hi";
   sources?: AssistantSource[];
   kind?: string;
   calc?: Record<string, unknown> | null;

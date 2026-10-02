@@ -235,13 +235,7 @@ const getSpeechRecognitionClass = () => {
   return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null;
 };
 
-export function Assistant({
-  initialQuestion,
-  onClearInitialQuestion,
-}: {
-  initialQuestion?: string;
-  onClearInitialQuestion?: () => void;
-} = {}) {
+export function Assistant() {
   const [lang, setLang] = useState<"en" | "hi">("en");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
@@ -269,18 +263,12 @@ export function Assistant({
     async (question: string) => {
       if (!question.trim() || loading) return;
 
-      const isHindiText = /[\u0900-\u097F]/.test(question);
-      const questionLang = isHindiText ? "hi" : lang;
-      if (isHindiText && lang !== "hi") {
-        setLang("hi");
-      }
-
       const userMsgId = `user_${Date.now()}`;
       const userMessage: ChatMessage = {
         id: userMsgId,
         role: "user",
         content: question.trim(),
-        lang: questionLang,
+        lang: lang,
       };
 
       setMessages((prev) => [...prev, userMessage]);
@@ -297,7 +285,7 @@ export function Assistant({
 
       const body: AssistantRequestBody = {
         question: question.trim(),
-        language: questionLang,
+        language: lang,
         history: currentHistory,
       };
 
@@ -307,14 +295,14 @@ export function Assistant({
           id: `asst_${Date.now()}`,
           role: "assistant",
           content: response.answer || "",
-          lang: questionLang,
+          lang: lang,
           sources: response.sources,
           kind: response.kind,
           calc: response.calc,
         };
         setMessages((prev) => [...prev, assistantMessage]);
       } catch {
-        setError(questionLang === "hi" ? "उत्तर प्राप्त नहीं हो सका। कृपया पुनः प्रयास करें।" : "Could not get an answer. Please try again.");
+        setError(lang === "hi" ? "उत्तर प्राप्त नहीं हो सका। कृपया पुनः प्रयास करें।" : "Could not get an answer. Please try again.");
         setLastFailedQuestion(question.trim());
       } finally {
         setLoading(false);
@@ -322,15 +310,6 @@ export function Assistant({
     },
     [loading, messages, lang]
   );
-
-  const handledInitialRef = useRef(false);
-  useEffect(() => {
-    if (initialQuestion && initialQuestion.trim() && !handledInitialRef.current) {
-      handledInitialRef.current = true;
-      sendQuestion(initialQuestion);
-      onClearInitialQuestion?.();
-    }
-  }, [initialQuestion, sendQuestion, onClearInitialQuestion]);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();

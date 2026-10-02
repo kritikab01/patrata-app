@@ -1,13 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import type {
-  Product,
-  FormState,
-  ScoreResult,
-  ScoreBody,
-  AppMode,
-  BorrowerTabKey,
-  DeskTabKey,
-} from "./types";
+import type { Product, FormState, ScoreResult, ScoreBody, TabKey } from "./types";
 import { getHealth, getProducts, postScore, getApplication, getReviewQueue } from "./api";
 import { generateRequestId, num } from "./utils";
 import {
@@ -19,23 +11,14 @@ import {
   type ValidationErrors,
 } from "./components/LoanForm";
 import { ResultPanel } from "./components/ResultPanel";
-import {
-  BorrowerHeader,
-  BorrowerBottomBar,
-  DeskSidebar,
-  DeskMobileHeader,
-  AboutModal,
-  Footer,
-} from "./components/Layout";
+import { Header, Footer, AboutSection } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
 import { ReviewQueue } from "./components/ReviewQueue";
 import { Batch } from "./components/Batch";
 import { Compare } from "./components/Compare";
 import { Assistant } from "./components/Assistant";
 import { ModelCard } from "./components/ModelCard";
-import { HomeTab } from "./components/HomeTab";
 import { Spinner } from "./components/ui";
-import { Icon } from "./components/viz";
 
 type HealthState = "checking" | "waking" | "ready" | "unavailable";
 type ProductsState =
@@ -46,6 +29,7 @@ type ProductsState =
 const DRAFT_KEY = "patrata_draft";
 const REQUEST_ID_KEY = "patrata_request_id";
 const LAST_FORM_KEY = "patrata_last_form";
+const TAB_KEY = "patrata_tab";
 
 function loadDraft(): FormState {
   try {
@@ -101,63 +85,36 @@ function formSignature(form: FormState): string {
   return JSON.stringify(form);
 }
 
-function parseNavigationFromUrl(): {
-  mode: AppMode;
-  borrowerTab: BorrowerTabKey;
-  deskTab: DeskTabKey;
-} {
+function loadInitialTab(): TabKey {
   try {
     const params = new URLSearchParams(window.location.search);
-    const modeParam = params.get("mode");
-    const tabParam = params.get("tab");
-    const idParam = params.get("id");
-
-    const deskTabs: DeskTabKey[] = ["dashboard", "review", "batch", "compare", "model"];
-    const borrowerTabs: BorrowerTabKey[] = ["home", "check", "tools", "checks", "help"];
-
-    // Backward compatibility: old direct links like ?tab=dashboard open desk
-    if (tabParam && deskTabs.includes(tabParam as DeskTabKey)) {
-      return {
-        mode: "desk",
-        borrowerTab: "check",
-        deskTab: tabParam as DeskTabKey,
-      };
+    const tab = params.get("tab");
+    if (
+      tab === "check" ||
+      tab === "dashboard" ||
+      tab === "review" ||
+      tab === "batch" ||
+      tab === "compare" ||
+      tab === "assistant" ||
+      tab === "model"
+    ) {
+      return tab;
     }
-
-    if (modeParam === "desk") {
-      const validDeskTab =
-        tabParam && deskTabs.includes(tabParam as DeskTabKey)
-          ? (tabParam as DeskTabKey)
-          : "dashboard";
-      return {
-        mode: "desk",
-        borrowerTab: "check",
-        deskTab: validDeskTab,
-      };
-    }
-
-    // Default to Borrower app mode
-    let bTab: BorrowerTabKey = "home";
-    if (tabParam === "assistant") {
-      bTab = "help";
-    } else if (tabParam && borrowerTabs.includes(tabParam as BorrowerTabKey)) {
-      bTab = tabParam as BorrowerTabKey;
-    } else if (idParam) {
-      bTab = "check";
-    }
-
-    return {
-      mode: "borrower",
-      borrowerTab: bTab,
-      deskTab: "dashboard",
-    };
+    const t = localStorage.getItem(TAB_KEY);
+    if (
+      t === "check" ||
+      t === "dashboard" ||
+      t === "review" ||
+      t === "batch" ||
+      t === "compare" ||
+      t === "assistant" ||
+      t === "model"
+    )
+      return t;
   } catch {
-    return {
-      mode: "borrower",
-      borrowerTab: "home",
-      deskTab: "dashboard",
-    };
+    /* ignore */
   }
+  return "check";
 }
 
 function buildScoreBody(form: FormState, requestId: string): ScoreBody {
@@ -220,16 +177,9 @@ const FIELD_FOCUS_ORDER = [
 ];
 
 export default function App() {
-  const initialNav = useMemo(parseNavigationFromUrl, []);
-  const [mode, setMode] = useState<AppMode>(initialNav.mode);
-  const [borrowerTab, setBorrowerTab] = useState<BorrowerTabKey>(initialNav.borrowerTab);
-  const [deskTab, setDeskTab] = useState<DeskTabKey>(initialNav.deskTab);
-  const [lang, setLang] = useState<"en" | "hi">("en");
-  const [aboutOpen, setAboutOpen] = useState(false);
-  const [assistantInitialQuestion, setAssistantInitialQuestion] = useState<string | undefined>(undefined);
-
   const [health, setHealth] = useState<HealthState>("checking");
   const [productsState, setProductsState] = useState<ProductsState>({ status: "loading" });
+  const [activeTab, setActiveTab] = useState<TabKey>(loadInitialTab);
   const [reviewCount, setReviewCount] = useState(0);
 
   // Check tab state
@@ -305,20 +255,40 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [health, mode, deskTab]);
+  }, [health, activeTab]);
 
   // --- Save draft on form change ---
   useEffect(() => {
     saveDraft(form);
   }, [form]);
 
+  // --- Save tab to localStorage and sync URL ---
+  useEffect(() => {
+    try {
+      localStorage.setItem(TAB_KEY, activeTab);
+    } catch {
+      /* ignore */
+    }
+  }, [activeTab]);
+
   // --- Popstate listener for back/forward browser navigation ---
   useEffect(() => {
     function handlePopState() {
-      const nav = parseNavigationFromUrl();
-      setMode(nav.mode);
-      setBorrowerTab(nav.borrowerTab);
-      setDeskTab(nav.deskTab);
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab") as TabKey | null;
+      if (
+        tab === "dashboard" ||
+        tab === "review" ||
+        tab === "batch" ||
+        tab === "compare" ||
+        tab === "assistant" ||
+        tab === "model" ||
+        tab === "check"
+      ) {
+        setActiveTab(tab);
+      } else {
+        setActiveTab("check");
+      }
     }
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -350,188 +320,165 @@ export default function App() {
 
   // --- Scroll to result when it appears ---
   useEffect(() => {
-    if (result && !resultLoading && mode === "borrower" && borrowerTab === "check") {
+    if (result && !resultLoading && activeTab === "check") {
       setTimeout(() => {
         resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 100);
     }
-  }, [result, resultLoading, mode, borrowerTab]);
+  }, [result, resultLoading, activeTab]);
 
   const products = useMemo(
     () => (productsState.status === "ready" ? productsState.products : []),
     [productsState]
   );
 
-  function handleBorrowerTabChange(tab: BorrowerTabKey) {
-    setBorrowerTab(tab);
+  function handleTabChange(tab: TabKey) {
+    setActiveTab(tab);
     const url = new URL(window.location.href);
-    url.searchParams.set("mode", "borrower");
-    url.searchParams.set("tab", tab);
-    if (tab === "check" && result) {
-      url.searchParams.set("id", result.id);
+    if (tab === "check") {
+      url.searchParams.delete("tab");
+      // Keep ?id= if we have a current check result
+      if (result) {
+        url.searchParams.set("id", result.id);
+      }
     } else {
-      url.searchParams.delete("id");
+      url.searchParams.set("tab", tab);
+      if (tab !== "review") {
+        url.searchParams.delete("id");
+      }
     }
     window.history.pushState({}, "", url.toString());
   }
 
-  function handleDeskTabChange(tab: DeskTabKey) {
-    setDeskTab(tab);
-    const url = new URL(window.location.href);
-    url.searchParams.set("mode", "desk");
-    url.searchParams.set("tab", tab);
-    url.searchParams.delete("id");
-    window.history.pushState({}, "", url.toString());
-  }
-
-  function switchToDesk() {
-    setMode("desk");
-    setDeskTab("dashboard");
-    const url = new URL(window.location.href);
-    url.searchParams.set("mode", "desk");
-    url.searchParams.set("tab", "dashboard");
-    url.searchParams.delete("id");
-    window.history.pushState({}, "", url.toString());
-  }
-
-  function switchToBorrower() {
-    setMode("borrower");
-    setBorrowerTab("home");
-    const url = new URL(window.location.href);
-    url.searchParams.set("mode", "borrower");
-    url.searchParams.set("tab", "home");
-    url.searchParams.delete("id");
-    window.history.pushState({}, "", url.toString());
-  }
-
-  function handleNewApplication() {
-    setMode("borrower");
-    setBorrowerTab("check");
-    startOver();
-    const url = new URL(window.location.href);
-    url.searchParams.set("mode", "borrower");
-    url.searchParams.set("tab", "check");
-    url.searchParams.delete("id");
-    window.history.pushState({}, "", url.toString());
-  }
-
-  function handleSelectProduct(productId: string) {
-    const prod = products.find((p) => p.id === productId);
-    const firstVariant = prod?.variants?.[0]?.variant || "standard";
-    setForm((prev) => ({
-      ...prev,
-      product: productId,
-      variant: firstVariant,
-    }));
-    handleBorrowerTabChange("check");
-  }
-
-  function handleAskQuestion(question: string) {
-    setAssistantInitialQuestion(question);
-    handleBorrowerTabChange("help");
-  }
-
-  function toggleLang() {
-    setLang((prev) => (prev === "en" ? "hi" : "en"));
-  }
-
   function openApplication(id: string) {
-    setMode("borrower");
-    setBorrowerTab("check");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("tab");
+    url.searchParams.set("id", id);
+    window.history.pushState({}, "", url.toString());
+    setActiveTab("check");
     setResultLoading(true);
     setResultError(null);
     setExpiredResult(false);
-    const url = new URL(window.location.href);
-    url.searchParams.set("mode", "borrower");
-    url.searchParams.set("tab", "check");
-    url.searchParams.set("id", id);
-    window.history.pushState({}, "", url.toString());
     getApplication(id)
       .then((res) => {
         setResult(res);
       })
-      .catch(() => {
-        setResultError("Could not load application details.");
+      .catch((err) => {
+        if (err?.message?.includes("404") || err?.message?.includes("failed")) {
+          setExpiredResult(true);
+        } else {
+          setResultError("Could not load this result. Please try again.");
+        }
       })
       .finally(() => setResultLoading(false));
   }
 
-  // --- Form handlers ---
-  function handleChange(field: keyof FormState, value: unknown) {
-    setForm((prev) => {
-      const updated = { ...prev, [field]: value };
-      if (errors[field]) {
-        setErrors((prevErrors) => {
-          const next = { ...prevErrors };
-          delete next[field];
-          return next;
-        });
-      }
-      if (apiErrors[field]) {
-        setApiErrors((prevApi) => {
-          const next = { ...prevApi };
-          delete next[field];
-          return next;
-        });
-      }
-      return updated;
-    });
+  function handleChange(patch: Partial<FormState>) {
+    setForm((prev) => ({ ...prev, ...patch }));
+    setApiErrors({});
+    setSubmitError(null);
   }
 
   function loadSample() {
-    const s = { ...SAMPLE_APPLICANT };
-    setForm(s);
+    setForm({
+      ...EMPTY_FORM,
+      ...SAMPLE_APPLICANT,
+      product: "personal",
+      variant: "pl_salaried",
+    });
     setErrors({});
     setApiErrors({});
-    setSubmitError(null);
-    setResult(null);
-    requestIdRef.current = generateRequestId();
-    setRequestId(requestIdRef.current);
-    lastFormRef.current = "";
-    setLastForm(s);
   }
 
   function loadBorderline() {
-    const s = { ...BORDERLINE_APPLICANT };
-    setForm(s);
+    setForm({
+      ...EMPTY_FORM,
+      ...BORDERLINE_APPLICANT,
+      product: "personal",
+      variant: "pl_salaried",
+    });
     setErrors({});
     setApiErrors({});
-    setSubmitError(null);
-    setResult(null);
-    requestIdRef.current = generateRequestId();
-    setRequestId(requestIdRef.current);
-    lastFormRef.current = "";
-    setLastForm(s);
   }
 
   function startOver() {
     setForm(EMPTY_FORM);
     setErrors({});
     setApiErrors({});
-    setSubmitError(null);
     setResult(null);
+    setSubmitError(null);
     setExpiredResult(false);
     requestIdRef.current = generateRequestId();
     setRequestId(requestIdRef.current);
     lastFormRef.current = "";
     setLastForm(EMPTY_FORM);
+    try {
+      localStorage.removeItem(LAST_FORM_KEY);
+    } catch {
+      /* ignore */
+    }
     const url = new URL(window.location.href);
     url.searchParams.delete("id");
     window.history.replaceState({}, "", url.toString());
   }
 
-  const focusFirstError = useCallback((validationErrors: ValidationErrors) => {
-    for (const field of FIELD_FOCUS_ORDER) {
-      if (validationErrors[field]) {
-        const el = document.getElementById(field);
+  const focusFirstError = useCallback((errorMap: Record<string, string>) => {
+    const firstField = FIELD_FOCUS_ORDER.find((f) => errorMap[f]) || Object.keys(errorMap)[0];
+    if (firstField) {
+      setTimeout(() => {
+        const el = document.getElementById(firstField);
         if (el) {
-          el.focus();
           el.scrollIntoView({ behavior: "smooth", block: "center" });
-          break;
+          el.focus();
         }
-      }
+      }, 50);
     }
   }, []);
+
+  async function handleSubmit() {
+    const validationErrors = validateForm(form);
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) {
+      focusFirstError(validationErrors);
+      return;
+    }
+
+    const sig = formSignature(form);
+    if (lastFormRef.current !== sig) {
+      requestIdRef.current = generateRequestId();
+      setRequestId(requestIdRef.current);
+      lastFormRef.current = sig;
+      setLastForm(form);
+    }
+
+    setSubmitting(true);
+    setSubmitError(null);
+    setApiErrors({});
+
+    try {
+      const body = buildScoreBody(form, requestIdRef.current);
+      const res = await postScore(body);
+      setResult(res);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("tab");
+      url.searchParams.set("id", res.id);
+      window.history.replaceState({}, "", url.toString());
+    } catch (err: unknown) {
+      const apiErr = err as { status?: number; errors?: { field: string; message: string }[]; message?: string };
+      if (apiErr?.status === 422 && apiErr?.errors) {
+        const fieldErrors: Record<string, string> = {};
+        for (const e of apiErr.errors) {
+          fieldErrors[e.field] = e.message;
+        }
+        setApiErrors(fieldErrors);
+        focusFirstError(fieldErrors);
+      } else {
+        setSubmitError("Could not reach the Patrata engine. Please try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   function handleCheckWith(amount: number, termMonths: number) {
     setForm((prev) => ({
@@ -539,42 +486,17 @@ export default function App() {
       loan_amount: String(amount),
       tenure_months: String(termMonths),
     }));
-    handleSubmitWithOverrides({
-      loan_amount: String(amount),
-      tenure_months: String(termMonths),
-    });
-  }
-
-  function handleSubmit() {
-    handleSubmitWithOverrides({});
-  }
-
-  function handleSubmitWithOverrides(overrides: Partial<FormState>) {
-    const updatedForm = { ...form, ...overrides };
-    const validationErrors = validateForm(updatedForm);
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      focusFirstError(validationErrors);
-      return;
-    }
-    setErrors({});
-    setApiErrors({});
-
-    const currentSig = formSignature(updatedForm);
-    if (result && lastFormRef.current === currentSig) {
-      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-
-    if (!requestIdRef.current) {
-      requestIdRef.current = generateRequestId();
-      setRequestId(requestIdRef.current);
-    }
-
+    requestIdRef.current = generateRequestId();
+    setRequestId(requestIdRef.current);
+    lastFormRef.current = "";
+    setLastForm(EMPTY_FORM);
     setResult(null);
     setTimeout(() => {
-      if (submitting) {
-        setSubmitError("Scoring is taking longer than usual. Please check your connection.");
+      const updatedForm = { ...form, loan_amount: String(amount), tenure_months: String(termMonths) };
+      const validationErrors = validateForm(updatedForm);
+      setErrors(validationErrors);
+      if (Object.keys(validationErrors).length > 0) {
+        focusFirstError(validationErrors);
         return;
       }
       setSubmitting(true);
@@ -583,28 +505,15 @@ export default function App() {
       postScore(body)
         .then((res) => {
           setResult(res);
-          try {
-            const raw = localStorage.getItem("patrata_checks");
-            const existing = raw ? JSON.parse(raw) : [];
-            const updated = [res.id, ...(Array.isArray(existing) ? existing.filter((id: string) => id !== res.id) : [])].slice(0, 50);
-            localStorage.setItem("patrata_checks", JSON.stringify(updated));
-          } catch {
-            /* ignore */
-          }
           const url = new URL(window.location.href);
-          url.searchParams.set("mode", "borrower");
-          url.searchParams.set("tab", "check");
+          url.searchParams.delete("tab");
           url.searchParams.set("id", res.id);
           window.history.replaceState({}, "", url.toString());
           lastFormRef.current = formSignature(updatedForm);
           setLastForm(updatedForm);
         })
         .catch((err: unknown) => {
-          const apiErr = err as {
-            status?: number;
-            errors?: { field: string; message: string }[];
-            message?: string;
-          };
+          const apiErr = err as { status?: number; errors?: { field: string; message: string }[]; message?: string };
           if (apiErr?.status === 422 && apiErr?.errors) {
             const fieldErrors: Record<string, string> = {};
             for (const e of apiErr.errors) {
@@ -623,15 +532,8 @@ export default function App() {
   // --- Shared wrapper for non-ready states ---
   if (health === "checking") {
     return (
-      <div className="min-h-screen flex flex-col w-full max-w-full overflow-x-hidden bg-page">
-        <BorrowerHeader
-          activeTab={borrowerTab}
-          onTabChange={handleBorrowerTabChange}
-          onSwitchToDesk={switchToDesk}
-          onOpenAbout={() => setAboutOpen(true)}
-          lang={lang}
-          onToggleLang={toggleLang}
-        />
+      <div className="min-h-screen flex flex-col w-full max-w-full overflow-x-hidden">
+        <Header activeTab={activeTab} onTabChange={handleTabChange} reviewCount={reviewCount} />
         <div className="flex flex-1 items-center justify-center p-8">
           <div className="flex items-center gap-3 text-muted">
             <Spinner className="text-brand" />
@@ -645,15 +547,8 @@ export default function App() {
 
   if (health === "waking") {
     return (
-      <div className="min-h-screen flex flex-col w-full max-w-full overflow-x-hidden bg-page">
-        <BorrowerHeader
-          activeTab={borrowerTab}
-          onTabChange={handleBorrowerTabChange}
-          onSwitchToDesk={switchToDesk}
-          onOpenAbout={() => setAboutOpen(true)}
-          lang={lang}
-          onToggleLang={toggleLang}
-        />
+      <div className="min-h-screen flex flex-col w-full max-w-full overflow-x-hidden">
+        <Header activeTab={activeTab} onTabChange={handleTabChange} reviewCount={reviewCount} />
         <div className="flex flex-1 items-center justify-center p-8">
           <div className="max-w-md rounded-card border border-cardborder bg-white p-6 text-center">
             <Spinner className="mx-auto text-brand" />
@@ -668,15 +563,8 @@ export default function App() {
 
   if (health === "unavailable") {
     return (
-      <div className="min-h-screen flex flex-col w-full max-w-full overflow-x-hidden bg-page">
-        <BorrowerHeader
-          activeTab={borrowerTab}
-          onTabChange={handleBorrowerTabChange}
-          onSwitchToDesk={switchToDesk}
-          onOpenAbout={() => setAboutOpen(true)}
-          lang={lang}
-          onToggleLang={toggleLang}
-        />
+      <div className="min-h-screen flex flex-col w-full max-w-full overflow-x-hidden">
+        <Header activeTab={activeTab} onTabChange={handleTabChange} reviewCount={reviewCount} />
         <div className="flex flex-1 items-center justify-center p-8">
           <div className="max-w-md rounded-card border border-cardborder bg-white p-6 text-center">
             <p className="font-archivo font-700 text-lg text-ink">Engine unavailable</p>
@@ -694,76 +582,73 @@ export default function App() {
     );
   }
 
-  // =========================================================================
-  // BORROWER APP MODE (Default)
-  // =========================================================================
-  if (mode === "borrower") {
-    return (
-      <div className="min-h-screen flex flex-col w-full max-w-full overflow-x-hidden bg-page">
-        <BorrowerHeader
-          activeTab={borrowerTab}
-          onTabChange={handleBorrowerTabChange}
-          onSwitchToDesk={switchToDesk}
-          onOpenAbout={() => setAboutOpen(true)}
-          lang={lang}
-          onToggleLang={toggleLang}
-        />
+  // health === "ready"
+  return (
+    <div className="min-h-screen flex flex-col w-full max-w-full overflow-x-hidden">
+      <Header activeTab={activeTab} onTabChange={handleTabChange} reviewCount={reviewCount} />
+      <main className="flex-1 mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+        {/* CHECK TAB */}
+        {activeTab === "check" && (
+          <>
+            {productsState.status === "loading" && (
+              <div className="rounded-card border border-cardborder bg-white p-6">
+                <Spinner className="text-brand" />
+                <span className="ml-2 text-sm text-muted">Loading loan products…</span>
+              </div>
+            )}
 
-        <main className="flex-1 mx-auto w-full max-w-[1100px] px-4 py-6 sm:px-6 pb-28 md:pb-8">
-          {/* HOME TAB */}
-          {borrowerTab === "home" && (
-            <HomeTab
-              products={products}
-              onNavigateToCheck={() => handleBorrowerTabChange("check")}
-              onNavigateToTools={() => handleBorrowerTabChange("tools")}
-              onSelectProduct={handleSelectProduct}
-              onAskQuestion={handleAskQuestion}
-              onViewResult={openApplication}
-            />
-          )}
+            {productsState.status === "error" && (
+              <div className="rounded-card border border-cardborder bg-white p-6">
+                <p className="text-sm text-decline font-600">Could not load loan products.</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-2 text-sm font-600 text-brand hover:underline"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
 
-          {/* CHECK TAB */}
-          {borrowerTab === "check" && (
-            <div className="max-w-3xl mx-auto">
-              {productsState.status === "loading" && (
-                <div className="rounded-card border border-cardborder bg-white p-6">
-                  <Spinner className="text-brand" />
-                  <span className="ml-2 text-sm text-muted">Loading loan products…</span>
-                </div>
-              )}
+            {productsState.status === "ready" && (
+              <>
+                <LoanForm
+                  products={products}
+                  form={form}
+                  errors={errors}
+                  apiErrors={apiErrors}
+                  onChange={handleChange}
+                  onLoadSample={loadSample}
+                  onLoadBorderline={loadBorderline}
+                  onStartOver={startOver}
+                  onSubmit={handleSubmit}
+                  submitting={submitting}
+                />
 
-              {productsState.status === "error" && (
-                <div className="rounded-card border border-cardborder bg-white p-6">
-                  <p className="text-sm text-decline font-600">Could not load loan products.</p>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="mt-2 text-sm font-600 text-brand hover:underline"
-                  >
-                    Try again
-                  </button>
-                </div>
-              )}
+                {submitError && (
+                  <div className="mt-4 rounded-card border border-cardborder bg-white p-4">
+                    <p className="text-sm text-decline font-600">{submitError}</p>
+                    <button
+                      onClick={handleSubmit}
+                      className="mt-2 text-sm font-600 text-brand hover:underline"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                )}
 
-              {productsState.status === "ready" && (
-                <>
-                  <LoanForm
-                    products={products}
-                    form={form}
-                    errors={errors}
-                    apiErrors={apiErrors}
-                    onChange={handleChange}
-                    onLoadSample={loadSample}
-                    onLoadBorderline={loadBorderline}
-                    onStartOver={startOver}
-                    onSubmit={handleSubmit}
-                    submitting={submitting}
-                  />
+                <div ref={resultRef} className="mt-6">
+                  {resultLoading && (
+                    <div className="rounded-card border border-cardborder bg-white p-6">
+                      <Spinner className="text-brand" />
+                      <span className="ml-2 text-sm text-muted">Loading result…</span>
+                    </div>
+                  )}
 
-                  {submitError && (
-                    <div className="mt-4 rounded-card border border-cardborder bg-white p-4">
-                      <p className="text-sm text-decline font-600">{submitError}</p>
+                  {resultError && (
+                    <div className="rounded-card border border-cardborder bg-white p-4">
+                      <p className="text-sm text-decline font-600">{resultError}</p>
                       <button
-                        onClick={handleSubmit}
+                        onClick={() => window.location.reload()}
                         className="mt-2 text-sm font-600 text-brand hover:underline"
                       >
                         Try again
@@ -771,133 +656,43 @@ export default function App() {
                     </div>
                   )}
 
-                  <div ref={resultRef} className="mt-6">
-                    {resultLoading && (
-                      <div className="rounded-card border border-cardborder bg-white p-6">
-                        <Spinner className="text-brand" />
-                        <span className="ml-2 text-sm text-muted">Loading result…</span>
-                      </div>
-                    )}
+                  {expiredResult && (
+                    <div className="rounded-card border border-cardborder bg-white p-5 text-center">
+                      <p className="text-sm text-muted">
+                        This demo result has expired. Run the check again.
+                      </p>
+                    </div>
+                  )}
 
-                    {resultError && (
-                      <div className="rounded-card border border-cardborder bg-white p-4">
-                        <p className="text-sm text-decline font-600">{resultError}</p>
-                        <button
-                          onClick={() => window.location.reload()}
-                          className="mt-2 text-sm font-600 text-brand hover:underline"
-                        >
-                          Try again
-                        </button>
-                      </div>
-                    )}
+                  {result && <ResultPanel result={result} onCheckWith={handleCheckWith} />}
+                </div>
+              </>
+            )}
+          </>
+        )}
 
-                    {expiredResult && (
-                      <div className="rounded-card border border-cardborder bg-white p-5 text-center">
-                        <p className="text-sm text-muted">
-                          This demo result has expired. Run the check again.
-                        </p>
-                      </div>
-                    )}
+        {/* DASHBOARD TAB */}
+        {activeTab === "dashboard" && <Dashboard onOpenApplication={openApplication} />}
 
-                    {result && <ResultPanel result={result} onCheckWith={handleCheckWith} />}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+        {/* REVIEW TAB */}
+        {activeTab === "review" && <ReviewQueue />}
 
-          {/* TOOLS TAB */}
-          {borrowerTab === "tools" && (
-            <div className="rounded-card border border-cardborder bg-white p-6 sm:p-8 text-center space-y-3 max-w-lg mx-auto my-8">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-page text-brand">
-                <Icon name="tools" size={28} />
-              </div>
-              <div>
-                <h2 className="font-archivo font-800 text-xl text-ink">Loan Calculators & Tools</h2>
-                <p className="mt-2 text-sm text-muted">
-                  Tools is coming in the next step.
-                </p>
-              </div>
-            </div>
-          )}
+        {/* BATCH TAB */}
+        {activeTab === "batch" && <Batch />}
 
-          {/* MY CHECKS TAB */}
-          {borrowerTab === "checks" && (
-            <div className="rounded-card border border-cardborder bg-white p-6 sm:p-8 text-center space-y-3 max-w-lg mx-auto my-8">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-page text-muted">
-                <Icon name="receipt" size={28} />
-              </div>
-              <div>
-                <h2 className="font-archivo font-800 text-xl text-ink">My Checks</h2>
-                <p className="mt-2 text-sm text-muted">
-                  My checks is coming in the next step.
-                </p>
-              </div>
-            </div>
-          )}
+        {/* COMPARE TAB */}
+        {activeTab === "compare" && <Compare products={products} />}
 
-          {/* HELP TAB (ASSISTANT) */}
-          {borrowerTab === "help" && (
-            <div className="max-w-3xl mx-auto">
-              <Assistant
-                initialQuestion={assistantInitialQuestion}
-                onClearInitialQuestion={() => setAssistantInitialQuestion(undefined)}
-              />
-            </div>
-          )}
-        </main>
+        {/* ASSISTANT TAB */}
+        {activeTab === "assistant" && <Assistant />}
 
-        <BorrowerBottomBar activeTab={borrowerTab} onTabChange={handleBorrowerTabChange} />
-        <Footer />
-        <AboutModal
-          open={aboutOpen}
-          onClose={() => setAboutOpen(false)}
-          modelVersion={result?.model_version}
-        />
-      </div>
-    );
-  }
+        {/* MODEL TAB */}
+        {activeTab === "model" && <ModelCard />}
 
-  // =========================================================================
-  // LENDER DESK MODE
-  // =========================================================================
-  return (
-    <div className="min-h-screen flex flex-col md:flex-row w-full max-w-full overflow-x-hidden bg-page">
-      {/* Laptop Sidebar */}
-      <DeskSidebar
-        activeTab={deskTab}
-        onTabChange={handleDeskTabChange}
-        reviewCount={reviewCount}
-        onNewApplication={handleNewApplication}
-        onSwitchToBorrower={switchToBorrower}
-      />
-
-      {/* Mobile Top Header */}
-      <DeskMobileHeader
-        activeTab={deskTab}
-        onTabChange={handleDeskTabChange}
-        reviewCount={reviewCount}
-        onNewApplication={handleNewApplication}
-        onSwitchToBorrower={switchToBorrower}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full max-w-5xl mx-auto">
-          {deskTab === "dashboard" && <Dashboard onOpenApplication={openApplication} />}
-          {deskTab === "review" && <ReviewQueue />}
-          {deskTab === "batch" && <Batch />}
-          {deskTab === "compare" && <Compare products={products} />}
-          {deskTab === "model" && <ModelCard />}
-        </main>
-        <Footer />
-      </div>
-
-      <AboutModal
-        open={aboutOpen}
-        onClose={() => setAboutOpen(false)}
-        modelVersion={result?.model_version}
-      />
+        {/* ABOUT PATRATA AND YOUR DATA */}
+        <AboutSection modelVersion={result?.model_version} />
+      </main>
+      <Footer />
     </div>
   );
 }
