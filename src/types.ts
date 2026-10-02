@@ -148,16 +148,33 @@ export type DailyStat = {
   DECLINE: number;
 };
 
+export type CibilBandStat = {
+  band: string;
+  count: number;
+  approve_rate: number;
+};
+
+export type ProductStat = {
+  product: string;
+  total: number;
+  approve: number;
+  refer: number;
+  decline: number;
+};
+
 export type StatsData = {
   total: number;
   by_decision: { APPROVE: number; REFER: number; DECLINE: number };
   approval_rate: number;
   awaiting_review: number;
+  reviewed?: number;
+  overrides?: number;
   avg_cibil: number | null;
   avg_foir: number | null;
   daily: DailyStat[];
   attention_reasons: { reason: string; count: number }[];
-  by_product: Record<string, number>;
+  cibil_bands?: CibilBandStat[];
+  by_product?: ProductStat[] | Record<string, number>;
 };
 
 export type ReviewAgentStep = {
