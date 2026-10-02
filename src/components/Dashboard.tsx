@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { StatsData, ScoreResult, DailyStat, CibilBandStat, ProductStat } from "../types";
-import { getStats, getApplications } from "../api";
+import { getStats, getApplications, getReviewQueue } from "../api";
 import { formatINR, formatPct } from "../utils";
 import { Spinner, ErrorBox } from "./ui";
+import { Donut, Icon } from "./viz";
 import {
   ResponsiveContainer,
   PieChart,
@@ -102,91 +103,42 @@ function CustomLegend({
 
 // 1. DECISION MIX DONUT
 function DecisionMixChart({ data }: { data: StatsData["by_decision"] }) {
-  const [hidden, setHidden] = useState<Record<string, boolean>>({});
-
   const total = (data.APPROVE || 0) + (data.REFER || 0) + (data.DECLINE || 0);
 
-  const rawSlices = [
-    { key: "APPROVE", name: "Approve", value: data.APPROVE || 0, color: COLORS.approve },
-    { key: "REFER", name: "Refer", value: data.REFER || 0, color: COLORS.refer },
-    { key: "DECLINE", name: "Decline", value: data.DECLINE || 0, color: COLORS.decline },
+  const segments = [
+    { label: "Approve", value: data.APPROVE || 0, color: "#047857" },
+    { label: "Refer", value: data.REFER || 0, color: "#E0A33A" },
+    { label: "Decline", value: data.DECLINE || 0, color: "#B42318" },
   ];
 
-  const visibleSlices = rawSlices.filter((s) => !hidden[s.key]);
-
-  const legendItems = rawSlices.map((s) => ({
-    key: s.key,
-    label: s.name,
-    color: s.color,
-  }));
-
-  const toggle = (key: string) => {
-    setHidden((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
   return (
-    <div className="rounded-card border border-cardborder bg-white p-5 sm:p-6 flex flex-col justify-between">
+    <div className="rounded-card border border-cardborder bg-white p-5 sm:p-6 flex flex-col justify-between shadow-xs">
       <div>
-        <h3 className="font-archivo font-700 text-base text-ink">Decision mix</h3>
+        <h3 className="font-archivo font-bold text-base text-ink">Decision mix</h3>
         <p className="mt-0.5 text-xs text-muted">All-time outcome distribution across evaluations</p>
       </div>
 
-      <div className="relative mt-4 h-56 w-full flex items-center justify-center">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Tooltip
-              content={({ active, payload }) => {
-                if (!active || !payload || !payload.length) return null;
-                const p = payload[0];
-                const count = Number(p.value) || 0;
-                const pct = total > 0 ? ((count / total) * 100).toFixed(1) + "%" : "0%";
-                return (
-                  <div className="rounded-card border border-cardborder bg-white p-2.5 shadow-md text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: p.payload?.color || "#000" }}
-                      />
-                      <span className="font-700 text-ink">{p.name}</span>
-                    </div>
-                    <p className="mt-1 text-muted">
-                      Count: <span className="font-600 text-ink">{count.toLocaleString("en-IN")}</span>
-                    </p>
-                    <p className="text-muted">
-                      Share: <span className="font-600 text-ink">{pct}</span>
-                    </p>
-                  </div>
-                );
-              }}
-            />
-            <Pie
-              data={visibleSlices}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="50%"
-              innerRadius={58}
-              outerRadius={84}
-              paddingAngle={2}
-              animationDuration={300}
-            >
-              {visibleSlices.map((entry) => (
-                <Cell key={entry.key} fill={entry.color} />
-              ))}
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-
-        {/* Center Total Count */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="font-archivo font-800 text-2xl text-ink">
-            {total.toLocaleString("en-IN")}
-          </span>
-          <span className="text-[10px] font-600 text-muted uppercase tracking-wider">Total</span>
-        </div>
+      <div className="my-5 flex justify-center items-center">
+        <Donut
+          segments={segments}
+          size={170}
+          thickness={20}
+          centerTop="Total"
+          centerBottom={total.toLocaleString("en-IN")}
+        />
       </div>
 
-      <CustomLegend items={legendItems} hiddenSeries={hidden} onToggle={toggle} />
+      <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-semibold pt-3 border-t border-cardborder">
+        {segments.map((s) => (
+          <div key={s.label} className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+            <span className="text-muted">{s.label}:</span>
+            <span className="font-archivo font-bold text-ink">
+              {s.value.toLocaleString("en-IN")} ({total > 0 ? Math.round((s.value / total) * 100) : 0}%)
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -799,10 +751,17 @@ function DecisionPill({ decision }: { decision: ScoreResult["decision"] }) {
   );
 }
 
-export function Dashboard({ onOpenApplication }: { onOpenApplication: (id: string) => void }) {
+export function Dashboard({
+  onOpenApplication,
+  onNewApplication,
+}: {
+  onOpenApplication: (id: string) => void;
+  onNewApplication?: () => void;
+}) {
   const [days, setDays] = useState<number>(14);
   const [statsState, setStatsState] = useState<LoadState<StatsData>>({ status: "loading" });
   const [appsState, setAppsState] = useState<LoadState<ScoreResult[]>>({ status: "loading" });
+  const [queueCases, setQueueCases] = useState<ScoreResult[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadStats = useCallback(async (selectedDays: number) => {
@@ -825,14 +784,29 @@ export function Dashboard({ onOpenApplication }: { onOpenApplication: (id: strin
     }
   }, []);
 
+  const loadQueue = useCallback(async () => {
+    try {
+      const data = await getReviewQueue();
+      const sorted = [...data].sort((a, b) => {
+        const da = new Date(a.created_at || "").getTime();
+        const db = new Date(b.created_at || "").getTime();
+        return da - db;
+      });
+      setQueueCases(sorted);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     loadStats(days);
     loadApps();
-  }, [days, loadStats, loadApps]);
+    loadQueue();
+  }, [days, loadStats, loadApps, loadQueue]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadStats(days), loadApps()]);
+    await Promise.all([loadStats(days), loadApps(), loadQueue()]);
     setRefreshing(false);
   };
 
@@ -850,39 +824,52 @@ export function Dashboard({ onOpenApplication }: { onOpenApplication: (id: strin
   }, [statsState]);
 
   return (
-    <div className="space-y-5">
-      {/* Top Bar: Range Toggle & Updated Text with Refresh */}
-      <div className="rounded-card border border-cardborder bg-white p-4 sm:p-5 flex items-center justify-between flex-wrap gap-3">
-        {/* Segmented Range Toggle */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-600 text-muted">Range:</span>
-          <div className="flex rounded-btn border border-cardborder p-0.5 text-xs">
+    <div className="space-y-6">
+      {/* 1. Dashboard Header */}
+      <div className="rounded-card border border-cardborder bg-white p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
+        <div>
+          <h2 className="font-archivo font-extrabold text-2xl text-ink leading-tight">Dashboard</h2>
+          <p className="text-xs text-muted mt-0.5">
+            Every screening, decision and review in one place
+          </p>
+        </div>
+
+        <div className="flex items-center flex-wrap gap-2.5">
+          {/* Segmented 7/14/30 days toggle */}
+          <div className="flex rounded-btn border border-cardborder p-0.5 text-xs bg-page">
             {[7, 14, 30].map((d) => (
               <button
                 key={d}
                 type="button"
                 onClick={() => setDays(d)}
-                className={`rounded-[8px] px-3 py-1.5 font-600 transition-colors ${
-                  days === d
-                    ? "bg-ink text-white"
-                    : "text-muted hover:text-ink"
+                className={`rounded-[7px] px-3 py-1.5 font-bold transition-colors ${
+                  days === d ? "bg-ink text-white shadow-xs" : "text-muted hover:text-ink"
                 }`}
               >
                 {d} days
               </button>
             ))}
           </div>
-        </div>
 
-        {/* Refresh & Updated info */}
-        <div className="flex items-center gap-2 text-xs text-muted">
-          <span>Updated just now</span>
+          {/* Blue New application button */}
+          {onNewApplication && (
+            <button
+              type="button"
+              onClick={onNewApplication}
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-btn bg-[#1E4FD8] hover:bg-[#1A44BD] px-4 font-archivo font-bold text-xs text-white transition-colors shadow-sm"
+            >
+              <Icon name="check" size={14} color="#fff" />
+              <span>New application</span>
+            </button>
+          )}
+
+          {/* Refresh button */}
           <button
             type="button"
             onClick={handleRefresh}
             disabled={refreshing || statsState.status === "loading"}
             title="Refresh dashboard data"
-            className="flex h-8 w-8 items-center justify-center rounded-btn border border-cardborder bg-page text-ink hover:border-brand hover:text-brand transition-colors disabled:opacity-50"
+            className="flex h-10 w-10 min-h-[40px] items-center justify-center rounded-btn border border-cardborder bg-white text-ink hover:border-brand hover:text-brand transition-colors disabled:opacity-50"
           >
             <svg
               className={`h-4 w-4 ${refreshing ? "animate-spin text-brand" : ""}`}
@@ -898,6 +885,57 @@ export function Dashboard({ onOpenApplication }: { onOpenApplication: (id: strin
           </button>
         </div>
       </div>
+
+      {/* 2. "Waiting for you" Card (3 oldest review-queue cases) */}
+      {queueCases.length > 0 && (
+        <div className="rounded-card border border-[#FDE68A] bg-[#FFFBEB] p-5 sm:p-6 space-y-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-[#D97706] animate-pulse" />
+                <h3 className="font-archivo font-bold text-base text-ink">
+                  Waiting for you ({queueCases.length} in queue)
+                </h3>
+              </div>
+              <p className="text-xs text-muted mt-0.5">Oldest review cases awaiting officer decision</p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onOpenApplication(queueCases[0].id)}
+              className="h-10 min-h-[40px] px-4 rounded-btn bg-ink text-white font-archivo font-bold text-xs hover:bg-ink/90 transition-colors shadow-sm inline-flex items-center gap-1.5 self-start sm:self-auto"
+            >
+              <Icon name="sparkle" size={14} color="#fff" />
+              <span>Ask the Review Agent</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {queueCases.slice(0, 3).map((item) => (
+              <div
+                key={item.id}
+                onClick={() => onOpenApplication(item.id)}
+                className="rounded-card border border-cardborder bg-white p-3.5 space-y-1.5 cursor-pointer hover:border-brand transition-all shadow-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-archivo font-bold text-xs text-ink truncate">
+                    {item.product_name}
+                  </span>
+                  <span className="text-[11px] font-bold text-brand">
+                    {item.emi_estimate ? formatINR(item.emi_estimate) + "/mo" : "—"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted line-clamp-2 leading-snug">
+                  {item.reasons?.[0] || item.flags?.[0] || "Referred for underwriter review"}
+                </p>
+                <span className="text-[10px] text-muted/70 block pt-1 font-mono">
+                  APP {item.id.substring(0, 8).toUpperCase()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Error Box */}
       {statsState.status === "error" && (

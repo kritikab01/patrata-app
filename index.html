@@ -2,6 +2,39 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      (function() {
+        try {
+          var getNativeFetch = function() {
+            try {
+              return typeof window !== 'undefined' && window.fetch ? window.fetch.bind(window) : undefined;
+            } catch (e) {
+              return undefined;
+            }
+          };
+          var currentFetch = getNativeFetch();
+          var desc = {
+            get: function() {
+              return currentFetch || getNativeFetch();
+            },
+            set: function(fn) {
+              currentFetch = fn;
+            },
+            configurable: true,
+            enumerable: true
+          };
+          try {
+            Object.defineProperty(window, 'fetch', desc);
+          } catch (e1) {
+            try {
+              if (typeof Window !== 'undefined' && Window.prototype) {
+                Object.defineProperty(Window.prototype, 'fetch', desc);
+              }
+            } catch (e2) {}
+          }
+        } catch (e) {}
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
@@ -24,14 +57,5 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch((err) => {
-            console.warn('SW registration failed:', err);
-          });
-        });
-      }
-    </script>
   </body>
 </html>

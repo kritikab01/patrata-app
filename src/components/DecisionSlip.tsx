@@ -195,7 +195,15 @@ const inFrame = () => {
   }
 };
 
-export function SlipModal({ result, onClose }: { result: ScoreResult; onClose: () => void }) {
+export function SlipModal({
+  result,
+  onClose,
+  autoDownload = false,
+}: {
+  result: ScoreResult;
+  onClose: () => void;
+  autoDownload?: boolean;
+}) {
   const r = result as SlipResult;
   const kfs = useKfs(r.id, true);
   const slipRef = useRef<HTMLDivElement>(null);
@@ -211,6 +219,36 @@ export function SlipModal({ result, onClose }: { result: ScoreResult; onClose: (
       document.body.classList.remove("slip-open");
     };
   }, [onClose]);
+
+  const download = useCallback(async () => {
+    if (!slipRef.current) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await document.fonts?.ready;
+      const canvas = await html2canvas(slipRef.current, { scale: 3, backgroundColor: null, useCORS: true });
+      const widthMm = 80; // thermal-receipt width
+      const heightMm = (canvas.height / canvas.width) * widthMm;
+      const pdf = new jsPDF({ unit: "mm", format: [widthMm, heightMm] });
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, widthMm, heightMm);
+      pdf.save(`Patrata-slip-${r.id}.pdf`);
+    } catch {
+      setError("Couldn't create the PDF. Try Print instead.");
+    } finally {
+      setBusy(false);
+    }
+  }, [r.id]);
+
+  const autoDownloadedRef = useRef(false);
+  useEffect(() => {
+    if (autoDownload && kfs && !autoDownloadedRef.current) {
+      autoDownloadedRef.current = true;
+      const timer = setTimeout(() => {
+        download();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [autoDownload, kfs, download]);
 
   // Opened in a new tab with &slip=1&print=1: print as soon as the key facts have loaded.
   useEffect(() => {
@@ -231,25 +269,6 @@ export function SlipModal({ result, onClose }: { result: ScoreResult; onClose: (
       return;
     }
     window.print();
-  };
-
-  const download = async () => {
-    if (!slipRef.current) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await document.fonts?.ready;
-      const canvas = await html2canvas(slipRef.current, { scale: 3, backgroundColor: null, useCORS: true });
-      const widthMm = 80; // thermal-receipt width
-      const heightMm = (canvas.height / canvas.width) * widthMm;
-      const pdf = new jsPDF({ unit: "mm", format: [widthMm, heightMm] });
-      pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, widthMm, heightMm);
-      pdf.save(`Patrata-slip-${r.id}.pdf`);
-    } catch {
-      setError("Couldn't create the PDF. Try Print instead.");
-    } finally {
-      setBusy(false);
-    }
   };
 
   return (
