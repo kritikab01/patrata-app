@@ -16,6 +16,8 @@ import { Dashboard } from "./components/Dashboard";
 import { ReviewQueue } from "./components/ReviewQueue";
 import { Batch } from "./components/Batch";
 import { Compare } from "./components/Compare";
+import { Assistant } from "./components/Assistant";
+import { ModelCard } from "./components/ModelCard";
 import { Spinner } from "./components/ui";
 
 type HealthState = "checking" | "waking" | "ready" | "unavailable";
@@ -87,11 +89,28 @@ function loadInitialTab(): TabKey {
   try {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab");
-    if (tab === "check" || tab === "dashboard" || tab === "review" || tab === "batch" || tab === "compare") {
+    if (
+      tab === "check" ||
+      tab === "dashboard" ||
+      tab === "review" ||
+      tab === "batch" ||
+      tab === "compare" ||
+      tab === "assistant" ||
+      tab === "model"
+    ) {
       return tab;
     }
     const t = localStorage.getItem(TAB_KEY);
-    if (t === "check" || t === "dashboard" || t === "review" || t === "batch" || t === "compare") return t;
+    if (
+      t === "check" ||
+      t === "dashboard" ||
+      t === "review" ||
+      t === "batch" ||
+      t === "compare" ||
+      t === "assistant" ||
+      t === "model"
+    )
+      return t;
   } catch {
     /* ignore */
   }
@@ -257,7 +276,15 @@ export default function App() {
     function handlePopState() {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get("tab") as TabKey | null;
-      if (tab === "dashboard" || tab === "review" || tab === "batch" || tab === "compare" || tab === "check") {
+      if (
+        tab === "dashboard" ||
+        tab === "review" ||
+        tab === "batch" ||
+        tab === "compare" ||
+        tab === "assistant" ||
+        tab === "model" ||
+        tab === "check"
+      ) {
         setActiveTab(tab);
       } else {
         setActiveTab("check");
@@ -655,6 +682,12 @@ export default function App() {
 
         {/* COMPARE TAB */}
         {activeTab === "compare" && <Compare products={products} />}
+
+        {/* ASSISTANT TAB */}
+        {activeTab === "assistant" && <Assistant />}
+
+        {/* MODEL TAB */}
+        {activeTab === "model" && <ModelCard />}
 
         {/* ABOUT PATRATA AND YOUR DATA */}
         <AboutSection modelVersion={result?.model_version} />

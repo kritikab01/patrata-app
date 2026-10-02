@@ -188,7 +188,84 @@ export type ReviewBody = {
   reviewer: string;
 };
 
-export type TabKey = "check" | "dashboard" | "review" | "batch" | "compare";
+export type TabKey = "check" | "dashboard" | "review" | "batch" | "compare" | "assistant" | "model";
+
+export type ModelMetrics = {
+  roc_auc?: number | null;
+  logistic_regression_roc_auc?: number | null;
+  [key: string]: unknown;
+};
+
+export type ModelDetails = {
+  name?: string;
+  data_source?: string | null;
+  training_rows?: number | null;
+  rows?: number | null;
+  model_version?: string | null;
+  algorithm?: string | null;
+  metrics?: ModelMetrics | null;
+  [key: string]: unknown;
+};
+
+export type LLMDetails = {
+  provider?: string | null;
+  model?: string | null;
+  role?: string | null;
+  data_sent?: string | null;
+  [key: string]: unknown;
+};
+
+export type AssistantRetrievalEval = {
+  top1_hits?: number | string | null;
+  total_questions?: number | null;
+  accuracy?: number | null;
+  [key: string]: unknown;
+};
+
+export type ModelCardResponse = {
+  approval_v2?: ModelDetails | null;
+  risk_model?: ModelDetails | null;
+  models?: Record<string, ModelDetails> | null;
+  llm?: LLMDetails | null;
+  assistant_retrieval_eval?: AssistantRetrievalEval | null;
+  policy?: Record<string, unknown> | null;
+  policy_thresholds?: Record<string, unknown> | null;
+  limitations?: string[] | null;
+  [key: string]: unknown;
+};
+
+export type AssistantSource = {
+  n: number;
+  title: string;
+};
+
+export type AssistantResponse = {
+  answer: string;
+  sources?: AssistantSource[];
+  kind?: "grounded" | "general" | "calculator" | "guard" | string;
+  calc?: Record<string, unknown> | null;
+};
+
+export type ChatTurn = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type AssistantRequestBody = {
+  question: string;
+  language: "en" | "hi";
+  history: ChatTurn[];
+};
+
+export type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  sources?: AssistantSource[];
+  kind?: string;
+  calc?: Record<string, unknown> | null;
+  error?: boolean;
+};
 
 export type BatchRow = {
   ref: string;

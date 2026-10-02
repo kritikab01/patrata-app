@@ -12,6 +12,9 @@ import type {
   BatchRow,
   BatchResult,
   SimulateResult,
+  AssistantRequestBody,
+  AssistantResponse,
+  ModelCardResponse,
 } from "./types";
 
 async function fetchJSON<T>(url: string, init?: RequestInit, timeoutMs = 30000): Promise<T> {
@@ -122,3 +125,17 @@ export async function postSimulate(body: ScoreBody): Promise<SimulateResult> {
     body: JSON.stringify(body),
   });
 }
+
+export async function postAssistant(body: AssistantRequestBody): Promise<AssistantResponse> {
+  return fetchJSON(`${ENGINE_URL}/api/assistant`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }, 60000);
+}
+
+export async function getModelCard(): Promise<ModelCardResponse> {
+  return fetchJSON(`${ENGINE_URL}/api/model-card`);
+}
+
+

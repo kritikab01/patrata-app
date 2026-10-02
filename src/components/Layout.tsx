@@ -16,6 +16,8 @@ export function Header({
     { key: "review", label: "Review queue", badge: reviewCount || undefined },
     { key: "batch", label: "Batch" },
     { key: "compare", label: "Compare" },
+    { key: "assistant", label: "Assistant" },
+    { key: "model", label: "Model" },
   ];
 
   return (
