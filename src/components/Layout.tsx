@@ -11,6 +11,9 @@ export function BorrowerHeader({
   onLangToggle,
   onSwitchToDesk,
   onOpenAbout,
+  userName,
+  onOpenNameSheet,
+  onForgetName,
 }: {
   activeTab: BorrowerTabKey;
   onTabChange: (tab: BorrowerTabKey) => void;
@@ -18,6 +21,9 @@ export function BorrowerHeader({
   onLangToggle: () => void;
   onSwitchToDesk: () => void;
   onOpenAbout: () => void;
+  userName?: string;
+  onOpenNameSheet?: () => void;
+  onForgetName?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -101,9 +107,39 @@ export function BorrowerHeader({
               {menuOpen && (
                 <div className="absolute right-0 mt-2 w-64 rounded-card border border-cardborder bg-white p-2 shadow-xl z-50 animate-in fade-in zoom-in-95">
                   <div className="px-3 py-2 border-b border-cardborder mb-1">
-                    <p className="text-xs font-700 text-ink">Patrata Account</p>
+                    <p className="text-xs font-700 text-ink">
+                      {userName ? `Namaste, ${userName}` : "Patrata Account"}
+                    </p>
                     <p className="text-[11px] text-muted">Borrower Mode active</p>
                   </div>
+
+                  {onOpenNameSheet && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onOpenNameSheet();
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-600 text-ink hover:bg-page transition-colors"
+                    >
+                      <Icon name="user" size={16} />
+                      <span>{userName ? "Change name" : "Set your name"}</span>
+                    </button>
+                  )}
+
+                  {userName && onForgetName && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onForgetName();
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-600 text-[#B42318] hover:bg-page transition-colors"
+                    >
+                      <Icon name="cross" size={16} color="#B42318" />
+                      <span>Forget my name</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"
@@ -497,7 +533,7 @@ export function AboutModal({
           <div className="border-t border-cardborder pt-3">
             <h4 className="font-archivo font-700 text-sm text-ink">Your data</h4>
             <p className="mt-1 text-sm text-muted leading-relaxed">
-              Patrata does not ask for your name, PAN, Aadhaar or phone number. The numbers you enter are sent to the Patrata engine to score the application. For explanations and answers, the application details and your question are sent to an explainability model. This is a demo: please don't enter real personal data.
+              Patrata does not ask for your name, PAN, Aadhaar or phone number. Your name stays on this phone. It is never sent to Patrata's engine. The numbers you enter are sent to the Patrata engine to score the application. For explanations and answers, the application details and your question are sent to an explainability model. This is a demo: please don't enter real personal data.
             </p>
           </div>
 
@@ -558,7 +594,7 @@ export function AboutSection({ modelVersion }: { modelVersion?: string | null })
           <div className="border-t border-cardborder pt-4">
             <h4 className="font-archivo font-700 text-sm text-ink">Your data</h4>
             <p className="mt-1 text-sm text-muted leading-relaxed">
-              Patrata does not ask for your name, PAN, Aadhaar or phone number. The numbers you enter are sent to the Patrata engine to score the application. For explanations and answers, the application details and your question are sent to a third-party AI model provider. This is a demo: please don't enter real personal data.
+              Patrata does not ask for your name, PAN, Aadhaar or phone number. Your name stays on this phone. It is never sent to Patrata's engine. The numbers you enter are sent to the Patrata engine to score the application. For explanations and answers, the application details and your question are sent to a third-party AI model provider. This is a demo: please don't enter real personal data.
             </p>
           </div>
         </div>

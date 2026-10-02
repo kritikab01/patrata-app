@@ -888,6 +888,7 @@ export default function App() {
             {activeTab === "home" && (
               <BorrowerHome
                 products={products}
+                lang={lang}
                 onGoCheck={() => handleTabChange("check")}
                 onGoTools={(focus) => {
                   if (focus) {
@@ -903,6 +904,8 @@ export default function App() {
                   setHelpQuestion(q);
                   handleTabChange("help");
                 }}
+                onSwitchToDesk={() => handleModeChange("desk")}
+                onOpenAbout={() => setAboutModalOpen(true)}
               />
             )}
 
