@@ -2,5 +2,5 @@
   "name": "Patrata — Explainable Loan Pre-Screening",
   "description": "Explainable loan pre-screening and credit risk evaluation dashboard.",
   "permissions": [],
-  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "capabilities": []
 }
