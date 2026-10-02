@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Figtree:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Figtree:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Courier+Prime:wght@400;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -34,56 +34,10 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Print Styles: print only the result cards */
+.slip-print { display: none; }
 @media print {
-  header,
-  footer,
-  nav,
-  form,
-  button,
-  a,
-  .no-print,
-  .ask-card,
-  .about-section,
-  .fixed,
-  .badge-floating {
-    display: none !important;
-  }
-  
-  body, html {
-    background: #FFFFFF !important;
-    color: #0A0A0A !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    width: 100% !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  main {
-    max-width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    width: 100% !important;
-  }
-
-  .result-panel-container {
-    display: block !important;
-    width: 100% !important;
-  }
-
-  .rounded-card {
-    background: #FFFFFF !important;
-    border: 1px solid #D4D4D8 !important;
-    box-shadow: none !important;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-    margin-bottom: 1rem !important;
-  }
-
-  /* Keep DecisionSlab dark or high contrast when printing */
-  .rounded-card.bg-ink {
-    background: #0A0A0A !important;
-    color: #FFFFFF !important;
-  }
+  @page { margin: 10mm; }
+  body.slip-open > *:not(.slip-print) { display: none !important; }
+  body.slip-open .slip-print { display: block !important; }
+  .slip-print * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

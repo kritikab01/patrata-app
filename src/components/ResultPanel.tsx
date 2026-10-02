@@ -3,6 +3,7 @@ import type { ScoreResult, ExplainResult, AskResult } from "../types";
 import { formatINR, formatPct, formatMonths, formatNotice } from "../utils";
 import { postExplain, postAsk } from "../api";
 import { Spinner, ErrorBox, LoadingSkeleton, StatusMarker, CardErrorBoundary } from "./ui";
+import { SlipModal } from "./DecisionSlip";
 
 const decisionConfig = {
   APPROVE: {
@@ -245,25 +246,6 @@ function ResultActions({ result }: { result: ScoreResult }) {
     }
   }
 
-  function handlePrint() {
-    const isInsideFrame = typeof window !== "undefined" && window.self !== window.top;
-    if (isInsideFrame) {
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.set("print", "1");
-        if (result.id) {
-          url.searchParams.set("id", result.id);
-        }
-        url.searchParams.set("tab", "check");
-        window.open(url.toString(), "_blank", "noopener,noreferrer");
-      } catch {
-        window.print();
-      }
-    } else {
-      window.print();
-    }
-  }
-
   return (
     <div className="rounded-card border border-cardborder bg-white p-4 sm:p-5 no-print">
       <p className="text-xs font-600 text-muted mb-3">Share or export decision</p>
@@ -325,20 +307,6 @@ function ResultActions({ result }: { result: ScoreResult }) {
           </svg>
           Add follow-up to calendar
         </a>
-
-        {/* Print or save as PDF */}
-        <button
-          type="button"
-          onClick={handlePrint}
-          className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-btn border border-cardborder bg-white px-4 text-xs font-700 text-ink hover:border-brand hover:text-brand transition-colors"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="6 9 6 2 18 2 18 9" />
-            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-            <rect x="6" y="14" width="12" height="8" />
-          </svg>
-          Print or save as PDF
-        </button>
       </div>
     </div>
   );
@@ -774,32 +742,30 @@ export function ResultPanel({
   result: ScoreResult;
   onCheckWith: (amount: number, termMonths: number) => void;
 }) {
-  const currentDateFormatted = new Date().toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const [slipOpen, setSlipOpen] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("slip") === "1") {
+      setSlipOpen(true);
+    }
+  }, []);
 
   return (
     <div className="space-y-5 result-panel-container">
-      {/* Print-only Header */}
-      <div className="hidden print:block mb-4 pb-3 border-b border-cardborder">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-archivo font-800 text-xl text-ink">Patrata pre-screening result</h1>
-            <p className="text-xs text-muted mt-0.5">
-              Application ID: {result.id} · Date: {currentDateFormatted}
-            </p>
-          </div>
-          <div className="h-8 w-8 rounded-btn bg-ink flex items-center justify-center text-white font-archivo font-800 text-base">
-            प
-          </div>
-        </div>
-      </div>
-
       <CardErrorBoundary>
         <DecisionSlab result={result} />
       </CardErrorBoundary>
+
+      {/* Decision slip button */}
+      <button
+        type="button"
+        onClick={() => setSlipOpen(true)}
+        className="w-full min-h-[44px] rounded-btn border border-ink bg-transparent font-archivo font-700 text-sm text-ink hover:bg-ink hover:text-white transition-colors no-print flex items-center justify-center gap-2 shadow-sm"
+      >
+        Decision slip
+      </button>
+
       <CardErrorBoundary>
         <ResultActions result={result} />
       </CardErrorBoundary>
@@ -827,6 +793,8 @@ export function ResultPanel({
       <CardErrorBoundary>
         <AskCard resultId={result.id} />
       </CardErrorBoundary>
+
+      {slipOpen && <SlipModal result={result} onClose={() => setSlipOpen(false)} />}
     </div>
   );
 }

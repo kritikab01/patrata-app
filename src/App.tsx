@@ -327,18 +327,6 @@ export default function App() {
     }
   }, [result, resultLoading, activeTab]);
 
-  // --- Auto-trigger print if ?print=1 in URL and result is loaded ---
-  useEffect(() => {
-    if (!result || resultLoading) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("print") === "1") {
-      const timer = setTimeout(() => {
-        window.print();
-      }, 600);
-      return () => clearTimeout(timer);
-    }
-  }, [result, resultLoading]);
-
   const products = useMemo(
     () => (productsState.status === "ready" ? productsState.products : []),
     [productsState]
