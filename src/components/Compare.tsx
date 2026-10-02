@@ -19,7 +19,7 @@ const BASE_SAMPLE: FormState = {
   product: "personal",
   variant: "pl_salaried",
   age: "32",
-  no_of_dependents: "2",
+  no_of_dependents: "1",
   employment_type: "salaried",
   years_in_job: "5",
   income_annum: "1200000",
@@ -27,9 +27,9 @@ const BASE_SAMPLE: FormState = {
   loan_amount: "500000",
   property_value: "",
   asset_price: "",
-  tenure_months: "48",
-  annual_rate: "11.5",
-  cibil_score: "750",
+  tenure_months: "36",
+  annual_rate: "12",
+  cibil_score: "760",
   no_credit_history: false,
   existing_loans_count: "1",
   outstanding_debt: "120000",
@@ -104,12 +104,14 @@ const FIELD_LABELS: Record<string, string> = {
 
 function ApplicantForm({
   label,
+  idPrefix,
   products,
   form,
   onChange,
   accentColor,
 }: {
   label: string;
+  idPrefix: string;
   products: Product[];
   form: FormState;
   onChange: (patch: Partial<FormState>) => void;
@@ -131,8 +133,13 @@ function ApplicantForm({
 
       <div className="space-y-3">
         <div>
-          <label className="block text-xs font-600 text-muted mb-1">Product</label>
-          <select className={inputCls} value={form.product} onChange={(e) => handleProductChange(e.target.value)}>
+          <label htmlFor={`${idPrefix}_product`} className="block text-xs font-600 text-muted mb-1">Product</label>
+          <select
+            id={`${idPrefix}_product`}
+            className={inputCls}
+            value={form.product}
+            onChange={(e) => handleProductChange(e.target.value)}
+          >
             <option value="">Select</option>
             {products.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -141,8 +148,13 @@ function ApplicantForm({
         </div>
 
         <div>
-          <label className="block text-xs font-600 text-muted mb-1">Variant</label>
-          <select className={inputCls} value={form.variant} onChange={(e) => onChange({ variant: e.target.value })}>
+          <label htmlFor={`${idPrefix}_variant`} className="block text-xs font-600 text-muted mb-1">Variant</label>
+          <select
+            id={`${idPrefix}_variant`}
+            className={inputCls}
+            value={form.variant}
+            onChange={(e) => onChange({ variant: e.target.value })}
+          >
             {selectedProduct?.variants.map((v) => (
               <option key={v.id} value={v.id}>{v.name}</option>
             ))}
@@ -150,13 +162,14 @@ function ApplicantForm({
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <MiniField label="Age" value={form.age} onChange={(v) => onChange({ age: v })} />
-          <MiniField label="Dependents" value={form.no_of_dependents} onChange={(v) => onChange({ no_of_dependents: v })} />
+          <MiniField id={`${idPrefix}_age`} label="Age" value={form.age} onChange={(v) => onChange({ age: v })} />
+          <MiniField id={`${idPrefix}_dependents`} label="Dependents" value={form.no_of_dependents} onChange={(v) => onChange({ no_of_dependents: v })} />
         </div>
 
         <div>
-          <label className="block text-xs font-600 text-muted mb-1">Employment</label>
+          <label htmlFor={`${idPrefix}_employment`} className="block text-xs font-600 text-muted mb-1">Employment</label>
           <select
+            id={`${idPrefix}_employment`}
             className={inputCls}
             value={form.employment_type}
             onChange={(e) => onChange({ employment_type: e.target.value as EmploymentType })}
@@ -168,25 +181,26 @@ function ApplicantForm({
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <MiniField label="Years in job" value={form.years_in_job} onChange={(v) => onChange({ years_in_job: v })} />
-          <MiniField label="Annual income" value={form.income_annum} onChange={(v) => onChange({ income_annum: v })} />
+          <MiniField id={`${idPrefix}_years_in_job`} label="Years in job" value={form.years_in_job} onChange={(v) => onChange({ years_in_job: v })} />
+          <MiniField id={`${idPrefix}_income_annum`} label="Annual income" value={form.income_annum} onChange={(v) => onChange({ income_annum: v })} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <MiniField label="Existing EMI/mo" value={form.existing_emi_monthly} onChange={(v) => onChange({ existing_emi_monthly: v })} />
-          <MiniField label="Loan amount" value={form.loan_amount} onChange={(v) => onChange({ loan_amount: v })} />
+          <MiniField id={`${idPrefix}_existing_emi`} label="Existing EMI/mo" value={form.existing_emi_monthly} onChange={(v) => onChange({ existing_emi_monthly: v })} />
+          <MiniField id={`${idPrefix}_loan_amount`} label="Loan amount" value={form.loan_amount} onChange={(v) => onChange({ loan_amount: v })} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <MiniField label="Tenure (months)" value={form.tenure_months} onChange={(v) => onChange({ tenure_months: v })} />
-          <MiniField label="Interest rate %" value={form.annual_rate} onChange={(v) => onChange({ annual_rate: v })} />
+          <MiniField id={`${idPrefix}_tenure_months`} label="Tenure (months)" value={form.tenure_months} onChange={(v) => onChange({ tenure_months: v })} />
+          <MiniField id={`${idPrefix}_annual_rate`} label="Interest rate %" value={form.annual_rate} onChange={(v) => onChange({ annual_rate: v })} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <MiniField label="CIBIL score" value={form.cibil_score} onChange={(v) => onChange({ cibil_score: v })} disabled={form.no_credit_history} />
+          <MiniField id={`${idPrefix}_cibil_score`} label="CIBIL score" value={form.cibil_score} onChange={(v) => onChange({ cibil_score: v })} disabled={form.no_credit_history} />
           <div className="flex items-end pb-1">
-            <label className="flex items-center gap-1.5 text-xs text-ink cursor-pointer">
+            <label htmlFor={`${idPrefix}_no_credit_history`} className="flex items-center gap-1.5 text-xs text-ink cursor-pointer">
               <input
+                id={`${idPrefix}_no_credit_history`}
                 type="checkbox"
                 checked={form.no_credit_history}
                 onChange={(e) => onChange({ no_credit_history: e.target.checked, cibil_score: e.target.checked ? "" : form.cibil_score })}
@@ -198,37 +212,51 @@ function ApplicantForm({
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <MiniField label="Existing loans" value={form.existing_loans_count} onChange={(v) => onChange({ existing_loans_count: v })} />
-          <MiniField label="Outstanding debt" value={form.outstanding_debt} onChange={(v) => onChange({ outstanding_debt: v })} />
+          <MiniField id={`${idPrefix}_existing_loans`} label="Existing loans" value={form.existing_loans_count} onChange={(v) => onChange({ existing_loans_count: v })} />
+          <MiniField id={`${idPrefix}_outstanding_debt`} label="Outstanding debt" value={form.outstanding_debt} onChange={(v) => onChange({ outstanding_debt: v })} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <MiniField label="Credit history yrs" value={form.credit_history_years} onChange={(v) => onChange({ credit_history_years: v })} />
-          <MiniField label="New loans 12m" value={form.new_loans_12m} onChange={(v) => onChange({ new_loans_12m: v })} />
+          <MiniField id={`${idPrefix}_credit_history_years`} label="Credit history yrs" value={form.credit_history_years} onChange={(v) => onChange({ credit_history_years: v })} />
+          <MiniField id={`${idPrefix}_new_loans_12m`} label="New loans 12m" value={form.new_loans_12m} onChange={(v) => onChange({ new_loans_12m: v })} />
         </div>
 
         <div>
-          <label className="block text-xs font-600 text-muted mb-1">Overdue now?</label>
+          <span className="block text-xs font-600 text-muted mb-1">Overdue now?</span>
           <div className="flex h-11 items-center gap-4">
-            <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-              <input type="radio" checked={!form.overdue_now} onChange={() => onChange({ overdue_now: false })} className="accent-brand" />
+            <label htmlFor={`${idPrefix}_overdue_no`} className="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input
+                id={`${idPrefix}_overdue_no`}
+                type="radio"
+                name={`${idPrefix}_overdue`}
+                checked={!form.overdue_now}
+                onChange={() => onChange({ overdue_now: false })}
+                className="accent-brand"
+              />
               No
             </label>
-            <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-              <input type="radio" checked={form.overdue_now} onChange={() => onChange({ overdue_now: true })} className="accent-brand" />
+            <label htmlFor={`${idPrefix}_overdue_yes`} className="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input
+                id={`${idPrefix}_overdue_yes`}
+                type="radio"
+                name={`${idPrefix}_overdue`}
+                checked={form.overdue_now}
+                onChange={() => onChange({ overdue_now: true })}
+                className="accent-brand"
+              />
               Yes
             </label>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <MiniField label="Residential assets" value={form.residential_assets_value} onChange={(v) => onChange({ residential_assets_value: v })} />
-          <MiniField label="Commercial assets" value={form.commercial_assets_value} onChange={(v) => onChange({ commercial_assets_value: v })} />
+          <MiniField id={`${idPrefix}_residential_assets`} label="Residential assets" value={form.residential_assets_value} onChange={(v) => onChange({ residential_assets_value: v })} />
+          <MiniField id={`${idPrefix}_commercial_assets`} label="Commercial assets" value={form.commercial_assets_value} onChange={(v) => onChange({ commercial_assets_value: v })} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <MiniField label="Luxury assets" value={form.luxury_assets_value} onChange={(v) => onChange({ luxury_assets_value: v })} />
-          <MiniField label="Bank deposits" value={form.bank_asset_value} onChange={(v) => onChange({ bank_asset_value: v })} />
+          <MiniField id={`${idPrefix}_luxury_assets`} label="Luxury assets" value={form.luxury_assets_value} onChange={(v) => onChange({ luxury_assets_value: v })} />
+          <MiniField id={`${idPrefix}_bank_asset`} label="Bank deposits" value={form.bank_asset_value} onChange={(v) => onChange({ bank_asset_value: v })} />
         </div>
       </div>
     </div>
@@ -236,11 +264,13 @@ function ApplicantForm({
 }
 
 function MiniField({
+  id,
   label,
   value,
   onChange,
   disabled,
 }: {
+  id: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
@@ -248,8 +278,9 @@ function MiniField({
 }) {
   return (
     <div>
-      <label className="block text-xs font-600 text-muted mb-1">{label}</label>
+      <label htmlFor={id} className="block text-xs font-600 text-muted mb-1">{label}</label>
       <input
+        id={id}
         className={inputCls}
         type="number"
         inputMode="numeric"
@@ -273,8 +304,8 @@ function DecisionPill({ decision }: { decision: string }) {
     DECLINE: "Declined",
   };
   return (
-    <span className={`inline-block rounded-md border px-2.5 py-1 text-xs font-700 ${styles[decision]}`}>
-      {labels[decision]}
+    <span className={`inline-block rounded-md border px-2.5 py-1 text-xs font-700 ${styles[decision] || ""}`}>
+      {labels[decision] || decision}
     </span>
   );
 }
@@ -361,7 +392,7 @@ function findMatchingChecks(a: RuleCheck[] | undefined, b: RuleCheck[] | undefin
 
 export function Compare({ products }: { products: Product[] }) {
   const [formA, setFormA] = useState<FormState>({ ...BASE_SAMPLE });
-  const [formB, setFormB] = useState<FormState>({ ...BASE_SAMPLE, cibil_score: "700" });
+  const [formB, setFormB] = useState<FormState>({ ...BASE_SAMPLE, cibil_score: "690" });
   const [resultA, setResultA] = useState<SimulateResult | null>(null);
   const [resultB, setResultB] = useState<SimulateResult | null>(null);
   const [loadingA, setLoadingA] = useState(false);
@@ -447,8 +478,8 @@ export function Compare({ products }: { products: Product[] }) {
 
       {/* Side-by-side forms */}
       <div className="grid gap-4 md:grid-cols-2">
-        <ApplicantForm label="Applicant A" products={products} form={formA} onChange={setA} accentColor="#1E4FD8" />
-        <ApplicantForm label="Applicant B" products={products} form={formB} onChange={setB} accentColor="#047857" />
+        <ApplicantForm label="Applicant A" idPrefix="app_a" products={products} form={formA} onChange={setA} accentColor="#1E4FD8" />
+        <ApplicantForm label="Applicant B" idPrefix="app_b" products={products} form={formB} onChange={setB} accentColor="#047857" />
       </div>
 
       {/* Compare button */}
@@ -501,10 +532,10 @@ export function Compare({ products }: { products: Product[] }) {
                 <p className="text-sm font-600 text-ink">{c.check.label}</p>
                 <div className="mt-1 flex items-center gap-4 text-sm">
                   <span className="text-brand font-600">A:</span>
-                  <StatusMarker status={c.aStatus as "pass" | "review" | "fail"} />
+                  <StatusMarker status={c.aStatus} />
                   <span className="text-muted">|</span>
                   <span className="text-approve font-600">B:</span>
-                  <StatusMarker status={c.bStatus as "pass" | "review" | "fail"} />
+                  <StatusMarker status={c.bStatus} />
                 </div>
               </div>
             ))}
@@ -527,10 +558,10 @@ export function Compare({ products }: { products: Product[] }) {
                 </div>
                 <div className="mt-1 flex items-center gap-4 text-sm">
                   <span className="text-brand font-600 text-xs">A:</span>
-                  <StatusMarker status={c.aStatus as "pass" | "review" | "fail"} />
+                  <StatusMarker status={c.aStatus} />
                   <span className="text-muted">|</span>
                   <span className="text-approve font-600 text-xs">B:</span>
-                  <StatusMarker status={c.bStatus as "pass" | "review" | "fail"} />
+                  <StatusMarker status={c.bStatus} />
                 </div>
               </div>
             ))}

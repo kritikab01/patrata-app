@@ -11,6 +11,8 @@
 body {
   background-color: #F4F4F5;
   color: #0A0A0A;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 .font-deva {

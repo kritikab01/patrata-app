@@ -67,6 +67,7 @@ export type ScoreResult = {
   counterfactual: Counterfactual | null;
   flags: string[];
   warnings: string[];
+  model_version?: string;
 };
 
 export type ValidationError = { field: string; message: string };
@@ -74,7 +75,7 @@ export type ValidationError = { field: string; message: string };
 export type ExplainResult = {
   summary: string;
   reasons: string[];
-  next_steps: string[];
+  next_steps: string[] | string;
   source: string;
 };
 

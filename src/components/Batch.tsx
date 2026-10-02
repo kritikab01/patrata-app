@@ -75,50 +75,80 @@ export function downloadTemplate() {
 }
 
 function generateSampleBatch(): BatchRow[] {
-  const rows: BatchRow[] = [];
-  const variants = ["pl_salaried", "pl_self_employed"];
-  const employmentMap: Record<string, string> = {
-    pl_salaried: "salaried",
-    pl_self_employed: "self_employed",
-  };
+  const sampleProfiles: Array<{
+    variant: "pl_salaried" | "pl_self_employed";
+    age: number;
+    dependents: number;
+    yearsInJob: number;
+    income: number;
+    loanAmount: number;
+    loanTermYears: number;
+    rate: number;
+    cibil: number;
+    existingEmiFraction: number;
+    existingLoans: number;
+    debt: number;
+    creditYears: number;
+    newLoans: number;
+    overdue: boolean;
+    resAssets: number;
+    commAssets: number;
+    luxAssets: number;
+    bankAssets: number;
+  }> = [
+    { variant: "pl_salaried", age: 34, dependents: 1, yearsInJob: 6, income: 1800000, loanAmount: 500000, loanTermYears: 3, rate: 11.0, cibil: 790, existingEmiFraction: 0.08, existingLoans: 1, debt: 150000, creditYears: 8, newLoans: 0, overdue: false, resAssets: 4000000, commAssets: 0, luxAssets: 500000, bankAssets: 300000 },
+    { variant: "pl_self_employed", age: 38, dependents: 2, yearsInJob: 8, income: 2400000, loanAmount: 800000, loanTermYears: 4, rate: 11.5, cibil: 810, existingEmiFraction: 0.10, existingLoans: 2, debt: 300000, creditYears: 12, newLoans: 0, overdue: false, resAssets: 6000000, commAssets: 2000000, luxAssets: 800000, bankAssets: 600000 },
+    { variant: "pl_salaried", age: 26, dependents: 0, yearsInJob: 3, income: 900000, loanAmount: 250000, loanTermYears: 2, rate: 12.0, cibil: 760, existingEmiFraction: 0.05, existingLoans: 0, debt: 0, creditYears: 4, newLoans: 0, overdue: false, resAssets: 1500000, commAssets: 0, luxAssets: 200000, bankAssets: 150000 },
+    { variant: "pl_self_employed", age: 45, dependents: 3, yearsInJob: 15, income: 2800000, loanAmount: 1200000, loanTermYears: 5, rate: 11.0, cibil: 785, existingEmiFraction: 0.12, existingLoans: 2, debt: 450000, creditYears: 16, newLoans: 1, overdue: false, resAssets: 8000000, commAssets: 3500000, luxAssets: 1200000, bankAssets: 900000 },
+    { variant: "pl_salaried", age: 31, dependents: 1, yearsInJob: 4, income: 1200000, loanAmount: 400000, loanTermYears: 3, rate: 11.5, cibil: 770, existingEmiFraction: 0.07, existingLoans: 1, debt: 80000, creditYears: 6, newLoans: 0, overdue: false, resAssets: 3000000, commAssets: 0, luxAssets: 400000, bankAssets: 250000 },
+    { variant: "pl_self_employed", age: 32, dependents: 1, yearsInJob: 4, income: 1400000, loanAmount: 700000, loanTermYears: 4, rate: 13.0, cibil: 685, existingEmiFraction: 0.14, existingLoans: 1, debt: 220000, creditYears: 5, newLoans: 1, overdue: false, resAssets: 2500000, commAssets: 500000, luxAssets: 300000, bankAssets: 200000 },
+    { variant: "pl_salaried", age: 29, dependents: 0, yearsInJob: 2, income: 750000, loanAmount: 350000, loanTermYears: 3, rate: 13.5, cibil: 645, existingEmiFraction: 0.15, existingLoans: 1, debt: 110000, creditYears: 3, newLoans: 2, overdue: true, resAssets: 1000000, commAssets: 0, luxAssets: 150000, bankAssets: 50000 },
+    { variant: "pl_self_employed", age: 41, dependents: 2, yearsInJob: 10, income: 2600000, loanAmount: 1000000, loanTermYears: 3, rate: 11.5, cibil: 800, existingEmiFraction: 0.09, existingLoans: 1, debt: 250000, creditYears: 14, newLoans: 0, overdue: false, resAssets: 7500000, commAssets: 2500000, luxAssets: 900000, bankAssets: 800000 },
+    { variant: "pl_salaried", age: 36, dependents: 2, yearsInJob: 7, income: 1500000, loanAmount: 600000, loanTermYears: 4, rate: 12.5, cibil: 695, existingEmiFraction: 0.13, existingLoans: 2, debt: 240000, creditYears: 9, newLoans: 1, overdue: false, resAssets: 3800000, commAssets: 0, luxAssets: 450000, bankAssets: 220000 },
+    { variant: "pl_self_employed", age: 30, dependents: 1, yearsInJob: 3, income: 800000, loanAmount: 600000, loanTermYears: 5, rate: 14.0, cibil: 625, existingEmiFraction: 0.18, existingLoans: 2, debt: 180000, creditYears: 4, newLoans: 2, overdue: false, resAssets: 1200000, commAssets: 0, luxAssets: 100000, bankAssets: 80000 },
+    { variant: "pl_salaried", age: 42, dependents: 2, yearsInJob: 12, income: 3000000, loanAmount: 1500000, loanTermYears: 5, rate: 10.5, cibil: 820, existingEmiFraction: 0.11, existingLoans: 1, debt: 350000, creditYears: 15, newLoans: 0, overdue: false, resAssets: 9000000, commAssets: 0, luxAssets: 1500000, bankAssets: 1200000 },
+    { variant: "pl_self_employed", age: 35, dependents: 2, yearsInJob: 6, income: 1600000, loanAmount: 850000, loanTermYears: 4, rate: 12.5, cibil: 710, existingEmiFraction: 0.15, existingLoans: 2, debt: 280000, creditYears: 8, newLoans: 1, overdue: false, resAssets: 3200000, commAssets: 800000, luxAssets: 350000, bankAssets: 300000 },
+    { variant: "pl_salaried", age: 25, dependents: 0, yearsInJob: 2, income: 650000, loanAmount: 150000, loanTermYears: 2, rate: 12.0, cibil: 755, existingEmiFraction: 0.06, existingLoans: 0, debt: 0, creditYears: 3, newLoans: 0, overdue: false, resAssets: 800000, commAssets: 0, luxAssets: 100000, bankAssets: 120000 },
+    { variant: "pl_self_employed", age: 48, dependents: 2, yearsInJob: 11, income: 1100000, loanAmount: 750000, loanTermYears: 4, rate: 14.0, cibil: 630, existingEmiFraction: 0.17, existingLoans: 2, debt: 210000, creditYears: 10, newLoans: 2, overdue: true, resAssets: 2800000, commAssets: 600000, luxAssets: 200000, bankAssets: 90000 },
+    { variant: "pl_salaried", age: 37, dependents: 2, yearsInJob: 8, income: 2100000, loanAmount: 700000, loanTermYears: 3, rate: 11.0, cibil: 795, existingEmiFraction: 0.10, existingLoans: 1, debt: 200000, creditYears: 11, newLoans: 0, overdue: false, resAssets: 5500000, commAssets: 0, luxAssets: 700000, bankAssets: 500000 },
+    { variant: "pl_self_employed", age: 34, dependents: 1, yearsInJob: 5, income: 1750000, loanAmount: 500000, loanTermYears: 3, rate: 12.0, cibil: 775, existingEmiFraction: 0.08, existingLoans: 1, debt: 140000, creditYears: 7, newLoans: 0, overdue: false, resAssets: 3600000, commAssets: 1000000, luxAssets: 400000, bankAssets: 350000 },
+    { variant: "pl_salaried", age: 33, dependents: 1, yearsInJob: 5, income: 1000000, loanAmount: 550000, loanTermYears: 3, rate: 12.5, cibil: 705, existingEmiFraction: 0.16, existingLoans: 1, debt: 160000, creditYears: 7, newLoans: 1, overdue: false, resAssets: 2200000, commAssets: 0, luxAssets: 250000, bankAssets: 180000 },
+    { variant: "pl_self_employed", age: 52, dependents: 1, yearsInJob: 18, income: 2500000, loanAmount: 900000, loanTermYears: 4, rate: 11.5, cibil: 805, existingEmiFraction: 0.09, existingLoans: 1, debt: 220000, creditYears: 20, newLoans: 0, overdue: false, resAssets: 8500000, commAssets: 3000000, luxAssets: 1100000, bankAssets: 750000 },
+    { variant: "pl_salaried", age: 28, dependents: 1, yearsInJob: 3, income: 600000, loanAmount: 400000, loanTermYears: 3, rate: 13.5, cibil: 620, existingEmiFraction: 0.19, existingLoans: 2, debt: 120000, creditYears: 4, newLoans: 2, overdue: false, resAssets: 700000, commAssets: 0, luxAssets: 50000, bankAssets: 40000 },
+    { variant: "pl_self_employed", age: 39, dependents: 2, yearsInJob: 9, income: 2200000, loanAmount: 650000, loanTermYears: 3, rate: 11.5, cibil: 780, existingEmiFraction: 0.11, existingLoans: 1, debt: 230000, creditYears: 13, newLoans: 0, overdue: false, resAssets: 5200000, commAssets: 1500000, luxAssets: 600000, bankAssets: 450000 },
+  ];
 
-  for (let i = 0; i < 20; i++) {
-    const variant = variants[i % 2];
-    const cibil = 550 + Math.floor(Math.random() * 301);
-    const income = 400000 + Math.floor(Math.random() * 1600001);
-    const loanAmount = 100000 + Math.floor(Math.random() * 1900001);
-    const age = 25 + Math.floor(Math.random() * 31);
-    const tenureYears = 1 + Math.floor(Math.random() * 5);
-
-    rows.push({
+  return sampleProfiles.map((p, i) => {
+    const monthlyIncome = Math.round(p.income / 12);
+    const existingEmi = Math.round(monthlyIncome * p.existingEmiFraction);
+    return {
       ref: `S-${String(i + 1).padStart(3, "0")}`,
-      variant,
+      variant: p.variant,
       product: "personal",
-      age,
-      no_of_dependents: Math.floor(Math.random() * 4),
-      employment_type: employmentMap[variant] as "salaried" | "self_employed",
-      years_in_job: Math.floor(Math.random() * 10),
-      income_annum: income,
-      existing_emi_monthly: Math.floor(Math.random() * 15000),
-      loan_amount: loanAmount,
+      age: p.age,
+      no_of_dependents: p.dependents,
+      employment_type: p.variant === "pl_salaried" ? "salaried" : "self_employed",
+      years_in_job: p.yearsInJob,
+      income_annum: p.income,
+      existing_emi_monthly: existingEmi,
+      loan_amount: p.loanAmount,
       property_value: null,
       asset_price: null,
-      loan_term: tenureYears,
-      annual_rate: 10.5 + Math.random() * 3,
-      cibil_score: cibil,
+      loan_term: p.loanTermYears,
+      annual_rate: p.rate,
+      cibil_score: p.cibil,
       no_credit_history: false,
-      existing_loans_count: Math.floor(Math.random() * 3),
-      outstanding_debt: Math.floor(Math.random() * 200000),
-      credit_history_years: Math.floor(Math.random() * 15),
-      new_loans_12m: Math.floor(Math.random() * 3),
-      overdue_now: Math.random() < 0.15,
-      residential_assets_value: Math.floor(Math.random() * 4000000),
-      commercial_assets_value: Math.floor(Math.random() * 1000000),
-      luxury_assets_value: Math.floor(Math.random() * 800000),
-      bank_asset_value: Math.floor(Math.random() * 500000),
-    });
-  }
-  return rows;
+      existing_loans_count: p.existingLoans,
+      outstanding_debt: p.debt,
+      credit_history_years: p.creditYears,
+      new_loans_12m: p.newLoans,
+      overdue_now: p.overdue,
+      residential_assets_value: p.resAssets,
+      commercial_assets_value: p.commAssets,
+      luxury_assets_value: p.luxAssets,
+      bank_asset_value: p.bankAssets,
+    };
+  });
 }
 
 function parseCSV(text: string): BatchRow[] {

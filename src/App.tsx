@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import type { Product, FormState, ScoreResult, ScoreBody, TabKey } from "./types";
 import { getHealth, getProducts, postScore, getApplication, getReviewQueue } from "./api";
 import { generateRequestId, num } from "./utils";
@@ -6,11 +6,12 @@ import {
   LoanForm,
   EMPTY_FORM,
   SAMPLE_APPLICANT,
+  BORDERLINE_APPLICANT,
   validateForm,
   type ValidationErrors,
 } from "./components/LoanForm";
 import { ResultPanel } from "./components/ResultPanel";
-import { Header, Footer } from "./components/Layout";
+import { Header, Footer, AboutSection } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
 import { ReviewQueue } from "./components/ReviewQueue";
 import { Batch } from "./components/Batch";
@@ -82,8 +83,13 @@ function formSignature(form: FormState): string {
   return JSON.stringify(form);
 }
 
-function loadTab(): TabKey {
+function loadInitialTab(): TabKey {
   try {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if (tab === "check" || tab === "dashboard" || tab === "review" || tab === "batch" || tab === "compare") {
+      return tab;
+    }
     const t = localStorage.getItem(TAB_KEY);
     if (t === "check" || t === "dashboard" || t === "review" || t === "batch" || t === "compare") return t;
   } catch {
@@ -126,10 +132,35 @@ function buildScoreBody(form: FormState, requestId: string): ScoreBody {
   };
 }
 
+const FIELD_FOCUS_ORDER = [
+  "product",
+  "variant",
+  "age",
+  "no_of_dependents",
+  "employment_type",
+  "years_in_job",
+  "income_annum",
+  "existing_emi_monthly",
+  "loan_amount",
+  "tenure_months",
+  "property_value",
+  "asset_price",
+  "annual_rate",
+  "cibil_score",
+  "existing_loans_count",
+  "outstanding_debt",
+  "credit_history_years",
+  "new_loans_12m",
+  "residential_assets_value",
+  "commercial_assets_value",
+  "luxury_assets_value",
+  "bank_asset_value",
+];
+
 export default function App() {
   const [health, setHealth] = useState<HealthState>("checking");
   const [productsState, setProductsState] = useState<ProductsState>({ status: "loading" });
-  const [activeTab, setActiveTab] = useState<TabKey>(loadTab);
+  const [activeTab, setActiveTab] = useState<TabKey>(loadInitialTab);
   const [reviewCount, setReviewCount] = useState(0);
 
   // Check tab state
@@ -212,7 +243,7 @@ export default function App() {
     saveDraft(form);
   }, [form]);
 
-  // --- Save tab ---
+  // --- Save tab to localStorage and sync URL ---
   useEffect(() => {
     try {
       localStorage.setItem(TAB_KEY, activeTab);
@@ -221,12 +252,28 @@ export default function App() {
     }
   }, [activeTab]);
 
-  // --- Load result from URL ?id ---
+  // --- Popstate listener for back/forward browser navigation ---
+  useEffect(() => {
+    function handlePopState() {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab") as TabKey | null;
+      if (tab === "dashboard" || tab === "review" || tab === "batch" || tab === "compare" || tab === "check") {
+        setActiveTab(tab);
+      } else {
+        setActiveTab("check");
+      }
+    }
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // --- Load result from URL ?id on Check tab ---
   useEffect(() => {
     if (health !== "ready") return;
     const params = new URLSearchParams(window.location.search);
     const id = params.get("id");
-    if (!id) return;
+    const tab = params.get("tab");
+    if (!id || tab === "review") return;
     setResultLoading(true);
     setResultError(null);
     setExpiredResult(false);
@@ -262,17 +309,25 @@ export default function App() {
     setActiveTab(tab);
     const url = new URL(window.location.href);
     if (tab === "check") {
-      // keep ?id= on check tab
+      url.searchParams.delete("tab");
+      // Keep ?id= if we have a current check result
+      if (result) {
+        url.searchParams.set("id", result.id);
+      }
     } else {
-      url.searchParams.delete("id");
-      window.history.replaceState({}, "", url.toString());
+      url.searchParams.set("tab", tab);
+      if (tab !== "review") {
+        url.searchParams.delete("id");
+      }
     }
+    window.history.pushState({}, "", url.toString());
   }
 
   function openApplication(id: string) {
     const url = new URL(window.location.href);
+    url.searchParams.delete("tab");
     url.searchParams.set("id", id);
-    window.history.replaceState({}, "", url.toString());
+    window.history.pushState({}, "", url.toString());
     setActiveTab("check");
     setResultLoading(true);
     setResultError(null);
@@ -298,12 +353,23 @@ export default function App() {
   }
 
   function loadSample() {
-    setForm((prev) => ({
+    setForm({
       ...EMPTY_FORM,
       ...SAMPLE_APPLICANT,
-      product: prev.product,
-      variant: prev.variant,
-    }));
+      product: "personal",
+      variant: "pl_salaried",
+    });
+    setErrors({});
+    setApiErrors({});
+  }
+
+  function loadBorderline() {
+    setForm({
+      ...EMPTY_FORM,
+      ...BORDERLINE_APPLICANT,
+      product: "personal",
+      variant: "pl_salaried",
+    });
     setErrors({});
     setApiErrors({});
   }
@@ -329,10 +395,26 @@ export default function App() {
     window.history.replaceState({}, "", url.toString());
   }
 
+  const focusFirstError = useCallback((errorMap: Record<string, string>) => {
+    const firstField = FIELD_FOCUS_ORDER.find((f) => errorMap[f]) || Object.keys(errorMap)[0];
+    if (firstField) {
+      setTimeout(() => {
+        const el = document.getElementById(firstField);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.focus();
+        }
+      }, 50);
+    }
+  }, []);
+
   async function handleSubmit() {
     const validationErrors = validateForm(form);
     setErrors(validationErrors);
-    if (Object.keys(validationErrors).length > 0) return;
+    if (Object.keys(validationErrors).length > 0) {
+      focusFirstError(validationErrors);
+      return;
+    }
 
     const sig = formSignature(form);
     if (lastFormRef.current !== sig) {
@@ -351,6 +433,7 @@ export default function App() {
       const res = await postScore(body);
       setResult(res);
       const url = new URL(window.location.href);
+      url.searchParams.delete("tab");
       url.searchParams.set("id", res.id);
       window.history.replaceState({}, "", url.toString());
     } catch (err: unknown) {
@@ -361,6 +444,7 @@ export default function App() {
           fieldErrors[e.field] = e.message;
         }
         setApiErrors(fieldErrors);
+        focusFirstError(fieldErrors);
       } else {
         setSubmitError("Could not reach the Patrata engine. Please try again.");
       }
@@ -384,7 +468,10 @@ export default function App() {
       const updatedForm = { ...form, loan_amount: String(amount), tenure_months: String(termMonths) };
       const validationErrors = validateForm(updatedForm);
       setErrors(validationErrors);
-      if (Object.keys(validationErrors).length > 0) return;
+      if (Object.keys(validationErrors).length > 0) {
+        focusFirstError(validationErrors);
+        return;
+      }
       setSubmitting(true);
       setSubmitError(null);
       const body = buildScoreBody(updatedForm, requestIdRef.current);
@@ -392,6 +479,7 @@ export default function App() {
         .then((res) => {
           setResult(res);
           const url = new URL(window.location.href);
+          url.searchParams.delete("tab");
           url.searchParams.set("id", res.id);
           window.history.replaceState({}, "", url.toString());
           lastFormRef.current = formSignature(updatedForm);
@@ -405,6 +493,7 @@ export default function App() {
               fieldErrors[e.field] = e.message;
             }
             setApiErrors(fieldErrors);
+            focusFirstError(fieldErrors);
           } else {
             setSubmitError("Could not reach the Patrata engine. Please try again.");
           }
@@ -416,7 +505,7 @@ export default function App() {
   // --- Shared wrapper for non-ready states ---
   if (health === "checking") {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col w-full max-w-full overflow-x-hidden">
         <Header activeTab={activeTab} onTabChange={handleTabChange} reviewCount={reviewCount} />
         <div className="flex flex-1 items-center justify-center p-8">
           <div className="flex items-center gap-3 text-muted">
@@ -431,7 +520,7 @@ export default function App() {
 
   if (health === "waking") {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col w-full max-w-full overflow-x-hidden">
         <Header activeTab={activeTab} onTabChange={handleTabChange} reviewCount={reviewCount} />
         <div className="flex flex-1 items-center justify-center p-8">
           <div className="max-w-md rounded-card border border-cardborder bg-white p-6 text-center">
@@ -447,7 +536,7 @@ export default function App() {
 
   if (health === "unavailable") {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col w-full max-w-full overflow-x-hidden">
         <Header activeTab={activeTab} onTabChange={handleTabChange} reviewCount={reviewCount} />
         <div className="flex flex-1 items-center justify-center p-8">
           <div className="max-w-md rounded-card border border-cardborder bg-white p-6 text-center">
@@ -468,7 +557,7 @@ export default function App() {
 
   // health === "ready"
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col w-full max-w-full overflow-x-hidden">
       <Header activeTab={activeTab} onTabChange={handleTabChange} reviewCount={reviewCount} />
       <main className="flex-1 mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         {/* CHECK TAB */}
@@ -502,6 +591,7 @@ export default function App() {
                   apiErrors={apiErrors}
                   onChange={handleChange}
                   onLoadSample={loadSample}
+                  onLoadBorderline={loadBorderline}
                   onStartOver={startOver}
                   onSubmit={handleSubmit}
                   submitting={submitting}
@@ -565,6 +655,9 @@ export default function App() {
 
         {/* COMPARE TAB */}
         {activeTab === "compare" && <Compare products={products} />}
+
+        {/* ABOUT PATRATA AND YOUR DATA */}
+        <AboutSection modelVersion={result?.model_version} />
       </main>
       <Footer />
     </div>

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import type { ScoreResult, ReviewAgentResult } from "../types";
-import { getReviewQueue, postReviewAgent, postReview } from "../api";
+import { getReviewQueue, postReviewAgent, postReview, getApplication } from "../api";
 import { formatINR } from "../utils";
-import { Spinner, ErrorBox } from "./ui";
+import { Spinner, ErrorBox, CardErrorBoundary } from "./ui";
 import { ResultPanel } from "./ResultPanel";
 
 type QueueState =
@@ -277,10 +277,11 @@ function FinalDecisionCard({
 
       {/* Reason box */}
       <div className="mt-4">
-        <label className="block text-sm font-600 text-ink mb-1">
+        <label htmlFor="reviewer_note" className="block text-sm font-600 text-ink mb-1">
           Reasoning
         </label>
         <textarea
+          id="reviewer_note"
           className="w-full rounded-btn border border-cardborder bg-white p-3 text-sm text-ink placeholder:text-muted/60"
           rows={4}
           value={note}
@@ -294,8 +295,9 @@ function FinalDecisionCard({
 
       {/* Reviewer name */}
       <div className="mt-3">
-        <label className="block text-sm font-600 text-ink mb-1">Your name</label>
+        <label htmlFor="reviewer_name" className="block text-sm font-600 text-ink mb-1">Your name</label>
         <input
+          id="reviewer_name"
           className="w-full h-11 rounded-btn border border-cardborder bg-white px-3 text-sm text-ink placeholder:text-muted/60"
           value={reviewer}
           onChange={(e) => setReviewer(e.target.value)}
@@ -329,9 +331,12 @@ function FinalDecisionCard({
 
 export function ReviewQueue() {
   const [queueState, setQueueState] = useState<QueueState>({ status: "loading" });
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("tab") === "review" ? params.get("id") : null;
+  });
   const [selectedResult, setSelectedResult] = useState<ScoreResult | null>(null);
-  const [detailLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
   const loadQueue = useCallback(async () => {
@@ -339,8 +344,6 @@ export function ReviewQueue() {
     try {
       const items = await getReviewQueue();
       setQueueState({ status: "ready", items });
-      setSelectedId(null);
-      setSelectedResult(null);
     } catch {
       setQueueState({ status: "error" });
     }
@@ -349,6 +352,43 @@ export function ReviewQueue() {
   useEffect(() => {
     loadQueue();
   }, [loadQueue]);
+
+  // Sync selectedId from URL or load case
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id");
+    const tab = params.get("tab");
+    if (tab === "review" && id) {
+      if (selectedResult?.id === id) return;
+      setSelectedId(id);
+      setDetailLoading(true);
+      setDetailError(null);
+      getApplication(id)
+        .then((res) => setSelectedResult(res))
+        .catch(() => setDetailError("Could not load this case. Please try again."))
+        .finally(() => setDetailLoading(false));
+    }
+  }, [selectedResult]);
+
+  function selectItem(item: ScoreResult) {
+    setSelectedId(item.id);
+    setSelectedResult(item);
+    setDetailError(null);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", "review");
+    url.searchParams.set("id", item.id);
+    window.history.replaceState({}, "", url.toString());
+  }
+
+  function clearSelection() {
+    setSelectedId(null);
+    setSelectedResult(null);
+    setDetailError(null);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", "review");
+    url.searchParams.delete("id");
+    window.history.replaceState({}, "", url.toString());
+  }
 
   function handleCheckWith() {
     // no-op in review context — counterfactual re-scoring not applicable
@@ -385,10 +425,8 @@ export function ReviewQueue() {
                     {queueState.items.map((item) => (
                       <button
                         key={item.id}
-                        onClick={() => {
-                          setSelectedId(item.id);
-                          setSelectedResult(item);
-                        }}
+                        type="button"
+                        onClick={() => selectItem(item)}
                         className="flex w-full items-center justify-between gap-3 py-3 text-left hover:bg-page -mx-2 px-2 rounded-btn transition-colors"
                       >
                         <div className="min-w-0 flex-1">
@@ -417,11 +455,7 @@ export function ReviewQueue() {
         <div className="space-y-4">
           <button
             type="button"
-            onClick={() => {
-              setSelectedId(null);
-              setSelectedResult(null);
-              setDetailError(null);
-            }}
+            onClick={clearSelection}
             className="text-sm font-600 text-brand hover:underline"
           >
             ← Back to queue
@@ -434,17 +468,32 @@ export function ReviewQueue() {
           )}
 
           {detailError && (
-            <ErrorBox message={detailError} onRetry={() => setDetailError(null)} />
+            <ErrorBox message={detailError} onRetry={() => {
+              setDetailLoading(true);
+              getApplication(selectedId)
+                .then((res) => { setSelectedResult(res); setDetailError(null); })
+                .catch(() => setDetailError("Could not load this case. Please try again."))
+                .finally(() => setDetailLoading(false));
+            }} />
           )}
 
           {selectedResult && (
             <>
-              <ResultPanel result={selectedResult} onCheckWith={handleCheckWith} />
-              <ReviewAgentCard applicationId={selectedId} />
-              <FinalDecisionCard
-                applicationId={selectedId}
-                onSubmitted={loadQueue}
-              />
+              <CardErrorBoundary>
+                <ResultPanel result={selectedResult} onCheckWith={handleCheckWith} />
+              </CardErrorBoundary>
+              <CardErrorBoundary>
+                <ReviewAgentCard applicationId={selectedId} />
+              </CardErrorBoundary>
+              <CardErrorBoundary>
+                <FinalDecisionCard
+                  applicationId={selectedId}
+                  onSubmitted={() => {
+                    clearSelection();
+                    loadQueue();
+                  }}
+                />
+              </CardErrorBoundary>
             </>
           )}
         </div>

@@ -2,19 +2,21 @@ import { useMemo } from "react";
 import type { Product, FormState, EmploymentType } from "../types";
 import { num } from "../utils";
 
-const SAMPLE_APPLICANT: Partial<FormState> = {
+export const SAMPLE_APPLICANT: Partial<FormState> = {
+  product: "personal",
+  variant: "pl_salaried",
   age: "32",
-  no_of_dependents: "2",
+  no_of_dependents: "1",
   employment_type: "salaried",
   years_in_job: "5",
   income_annum: "1200000",
   existing_emi_monthly: "8000",
-  loan_amount: "2500000",
-  property_value: "4500000",
-  asset_price: "800000",
-  tenure_months: "240",
-  annual_rate: "9.5",
-  cibil_score: "780",
+  loan_amount: "500000",
+  property_value: "",
+  asset_price: "",
+  tenure_months: "36",
+  annual_rate: "12",
+  cibil_score: "760",
   no_credit_history: false,
   existing_loans_count: "1",
   outstanding_debt: "120000",
@@ -25,6 +27,11 @@ const SAMPLE_APPLICANT: Partial<FormState> = {
   commercial_assets_value: "0",
   luxury_assets_value: "500000",
   bank_asset_value: "200000",
+};
+
+export const BORDERLINE_APPLICANT: Partial<FormState> = {
+  ...SAMPLE_APPLICANT,
+  cibil_score: "690",
 };
 
 export const EMPTY_FORM: FormState = {
@@ -105,11 +112,13 @@ export function validateForm(form: FormState): ValidationErrors {
 }
 
 function Field({
+  id,
   label,
   error,
   children,
   hint,
 }: {
+  id?: string;
   label: string;
   error?: string;
   children: React.ReactNode;
@@ -117,7 +126,9 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-sm font-600 text-ink mb-1">{label}</label>
+      <label htmlFor={id} className="block text-sm font-600 text-ink mb-1">
+        {label}
+      </label>
       {children}
       {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
       {error && <p className="mt-1 text-xs text-decline font-500">{error}</p>}
@@ -134,6 +145,7 @@ export function LoanForm({
   errors,
   onChange,
   onLoadSample,
+  onLoadBorderline,
   onStartOver,
   onSubmit,
   submitting,
@@ -144,6 +156,7 @@ export function LoanForm({
   errors: ValidationErrors;
   onChange: (patch: Partial<FormState>) => void;
   onLoadSample: () => void;
+  onLoadBorderline: () => void;
   onStartOver: () => void;
   onSubmit: () => void;
   submitting: boolean;
@@ -175,8 +188,9 @@ export function LoanForm({
         <p className="mt-0.5 text-sm text-muted">Choose what you're borrowing for</p>
 
         <div className="mt-4">
-          <Field label="Product">
+          <Field id="product" label="Product" error={errors.product || apiErrors.product}>
             <select
+              id="product"
               className={inputCls}
               value={form.product}
               onChange={(e) => handleProductChange(e.target.value)}
@@ -188,12 +202,11 @@ export function LoanForm({
                 </option>
               ))}
             </select>
-            {errors.product && <p className="mt-1 text-xs text-decline font-500">{errors.product}</p>}
           </Field>
         </div>
 
         {selectedProduct && (
-          <div className="mt-4">
+          <div className="mt-4" id="variant">
             <p className="text-sm font-600 text-ink mb-2">Variants</p>
             {errors.variant && <p className="mb-2 text-xs text-decline font-500">{errors.variant}</p>}
             <div className="grid gap-3 sm:grid-cols-2">
@@ -239,8 +252,9 @@ export function LoanForm({
         <p className="mt-0.5 text-sm text-muted">Tell us about the borrower</p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label="Age" error={errors.age || apiErrors.age}>
+          <Field id="age" label="Age" error={errors.age || apiErrors.age}>
             <input
+              id="age"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -250,8 +264,9 @@ export function LoanForm({
             />
           </Field>
 
-          <Field label="No. of dependents" error={apiErrors.no_of_dependents}>
+          <Field id="no_of_dependents" label="No. of dependents" error={apiErrors.no_of_dependents}>
             <input
+              id="no_of_dependents"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -260,8 +275,9 @@ export function LoanForm({
             />
           </Field>
 
-          <Field label="Employment type" error={apiErrors.employment_type}>
+          <Field id="employment_type" label="Employment type" error={apiErrors.employment_type}>
             <select
+              id="employment_type"
               className={inputCls}
               value={form.employment_type}
               onChange={(e) =>
@@ -276,8 +292,9 @@ export function LoanForm({
             </select>
           </Field>
 
-          <Field label="Years in current job" error={apiErrors.years_in_job}>
+          <Field id="years_in_job" label="Years in current job" error={apiErrors.years_in_job}>
             <input
+              id="years_in_job"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -286,8 +303,9 @@ export function LoanForm({
             />
           </Field>
 
-          <Field label="Annual income" error={errors.income_annum || apiErrors.income_annum}>
+          <Field id="income_annum" label="Annual income" error={errors.income_annum || apiErrors.income_annum}>
             <input
+              id="income_annum"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -297,8 +315,9 @@ export function LoanForm({
             />
           </Field>
 
-          <Field label="Existing monthly EMI" error={apiErrors.existing_emi_monthly}>
+          <Field id="existing_emi_monthly" label="Existing monthly EMI" error={apiErrors.existing_emi_monthly}>
             <input
+              id="existing_emi_monthly"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -315,8 +334,9 @@ export function LoanForm({
         <p className="mt-0.5 text-sm text-muted">Details of this loan and your credit profile</p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label="Loan amount" error={errors.loan_amount || apiErrors.loan_amount}>
+          <Field id="loan_amount" label="Loan amount" error={errors.loan_amount || apiErrors.loan_amount}>
             <input
+              id="loan_amount"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -326,8 +346,9 @@ export function LoanForm({
             />
           </Field>
 
-          <Field label="Tenure (months)" error={errors.tenure_months || apiErrors.loan_term}>
+          <Field id="tenure_months" label="Tenure (months)" error={errors.tenure_months || apiErrors.loan_term}>
             <input
+              id="tenure_months"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -338,8 +359,9 @@ export function LoanForm({
           </Field>
 
           {productType === "home" && (
-            <Field label="Property value" error={errors.property_value || apiErrors.property_value}>
+            <Field id="property_value" label="Property value" error={errors.property_value || apiErrors.property_value}>
               <input
+                id="property_value"
                 className={inputCls}
                 type="number"
                 inputMode="numeric"
@@ -352,10 +374,12 @@ export function LoanForm({
 
           {(productType === "consumer" || productType === "vehicle") && (
             <Field
+              id="asset_price"
               label={productType === "vehicle" ? "On-road price" : "Asset price"}
               error={errors.asset_price || apiErrors.asset_price}
             >
               <input
+                id="asset_price"
                 className={inputCls}
                 type="number"
                 inputMode="numeric"
@@ -366,8 +390,9 @@ export function LoanForm({
             </Field>
           )}
 
-          <Field label="Interest rate (% per year)" error={errors.annual_rate || apiErrors.annual_rate}>
+          <Field id="annual_rate" label="Interest rate (% per year)" error={errors.annual_rate || apiErrors.annual_rate}>
             <input
+              id="annual_rate"
               className={inputCls}
               type="number"
               inputMode="decimal"
@@ -379,11 +404,13 @@ export function LoanForm({
           </Field>
 
           <Field
+            id="cibil_score"
             label="CIBIL score"
             error={errors.cibil_score || apiErrors.cibil_score}
             hint={form.no_credit_history ? "No credit history — sent as null" : "300–900"}
           >
             <input
+              id="cibil_score"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -395,8 +422,9 @@ export function LoanForm({
           </Field>
 
           <div className="flex items-end pb-2">
-            <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
+            <label htmlFor="no_credit_history" className="flex items-center gap-2 text-sm text-ink cursor-pointer">
               <input
+                id="no_credit_history"
                 type="checkbox"
                 checked={form.no_credit_history}
                 onChange={(e) =>
@@ -411,8 +439,9 @@ export function LoanForm({
             </label>
           </div>
 
-          <Field label="Existing loans count" error={apiErrors.existing_loans_count}>
+          <Field id="existing_loans_count" label="Existing loans count" error={apiErrors.existing_loans_count}>
             <input
+              id="existing_loans_count"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -421,8 +450,9 @@ export function LoanForm({
             />
           </Field>
 
-          <Field label="Outstanding debt" error={apiErrors.outstanding_debt}>
+          <Field id="outstanding_debt" label="Outstanding debt" error={apiErrors.outstanding_debt}>
             <input
+              id="outstanding_debt"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -432,8 +462,9 @@ export function LoanForm({
             />
           </Field>
 
-          <Field label="Credit history (years)" error={apiErrors.credit_history_years}>
+          <Field id="credit_history_years" label="Credit history (years)" error={apiErrors.credit_history_years}>
             <input
+              id="credit_history_years"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -442,8 +473,9 @@ export function LoanForm({
             />
           </Field>
 
-          <Field label="New loans in last 12 months" error={apiErrors.new_loans_12m}>
+          <Field id="new_loans_12m" label="New loans in last 12 months" error={apiErrors.new_loans_12m}>
             <input
+              id="new_loans_12m"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -452,10 +484,12 @@ export function LoanForm({
             />
           </Field>
 
-          <Field label="Any overdue right now?" error={apiErrors.overdue_now}>
+          <div>
+            <span className="block text-sm font-600 text-ink mb-1">Any overdue right now?</span>
             <div className="flex h-11 items-center gap-4">
-              <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+              <label htmlFor="overdue_now_no" className="flex items-center gap-1.5 text-sm cursor-pointer text-ink">
                 <input
+                  id="overdue_now_no"
                   type="radio"
                   name="overdue"
                   checked={!form.overdue_now}
@@ -464,8 +498,9 @@ export function LoanForm({
                 />
                 No
               </label>
-              <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+              <label htmlFor="overdue_now_yes" className="flex items-center gap-1.5 text-sm cursor-pointer text-ink">
                 <input
+                  id="overdue_now_yes"
                   type="radio"
                   name="overdue"
                   checked={form.overdue_now}
@@ -475,10 +510,14 @@ export function LoanForm({
                 Yes
               </label>
             </div>
-          </Field>
+            {apiErrors.overdue_now && (
+              <p className="mt-1 text-xs text-decline font-500">{apiErrors.overdue_now}</p>
+            )}
+          </div>
 
-          <Field label="Residential assets value" error={apiErrors.residential_assets_value}>
+          <Field id="residential_assets_value" label="Residential assets value" error={apiErrors.residential_assets_value}>
             <input
+              id="residential_assets_value"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -487,8 +526,9 @@ export function LoanForm({
             />
           </Field>
 
-          <Field label="Commercial assets value" error={apiErrors.commercial_assets_value}>
+          <Field id="commercial_assets_value" label="Commercial assets value" error={apiErrors.commercial_assets_value}>
             <input
+              id="commercial_assets_value"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -497,8 +537,9 @@ export function LoanForm({
             />
           </Field>
 
-          <Field label="Luxury assets value" error={apiErrors.luxury_assets_value}>
+          <Field id="luxury_assets_value" label="Luxury assets value" error={apiErrors.luxury_assets_value}>
             <input
+              id="luxury_assets_value"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -507,8 +548,9 @@ export function LoanForm({
             />
           </Field>
 
-          <Field label="Bank deposits value" error={apiErrors.bank_asset_value}>
+          <Field id="bank_asset_value" label="Bank deposits value" error={apiErrors.bank_asset_value}>
             <input
+              id="bank_asset_value"
               className={inputCls}
               type="number"
               inputMode="numeric"
@@ -521,13 +563,20 @@ export function LoanForm({
 
       {/* Actions */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <button
             type="button"
             onClick={onLoadSample}
             className="text-sm font-600 text-brand hover:underline"
           >
             Load sample applicant
+          </button>
+          <button
+            type="button"
+            onClick={onLoadBorderline}
+            className="text-sm font-600 text-brand hover:underline"
+          >
+            Load borderline case
           </button>
           <button
             type="button"
@@ -559,5 +608,3 @@ export function LoanForm({
     </form>
   );
 }
-
-export { SAMPLE_APPLICANT };

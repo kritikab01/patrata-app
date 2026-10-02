@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Component, type ReactNode, type ErrorInfo } from "react";
 
 export function Spinner({ className = "" }: { className?: string }) {
   return (
@@ -32,6 +32,7 @@ export function ErrorBox({
       <p className="text-decline font-medium">{message}</p>
       {onRetry && (
         <button
+          type="button"
           onClick={onRetry}
           className="mt-2 inline-flex items-center gap-1 text-brand font-medium hover:underline"
         >
@@ -69,35 +70,88 @@ export function SectionCard({
   );
 }
 
-export function StatusMarker({ status }: { status: "pass" | "review" | "fail" }) {
-  if (status === "pass") {
+export class CardErrorBoundary extends Component<
+  { children: ReactNode; fallbackMessage?: string },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode; fallbackMessage?: string }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Result card error:", error, errorInfo);
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false });
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-card border border-cardborder bg-white p-5 text-sm">
+          <p className="text-decline font-medium">
+            {this.props.fallbackMessage || "Couldn't load this part. Try again"}
+          </p>
+          <button
+            type="button"
+            onClick={this.handleRetry}
+            className="mt-2 inline-flex items-center gap-1 text-brand font-medium hover:underline"
+          >
+            Try again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export function StatusMarker({ status }: { status: "pass" | "review" | "fail" | string }) {
+  const norm = (status || "").toLowerCase();
+  if (norm === "pass") {
     return (
-      <span className="inline-flex items-center gap-1.5 text-sm font-600">
-        <span className="flex h-4 w-4 items-center justify-center bg-ink text-white">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-            <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </span>
+      <span className="inline-flex items-center gap-1.5 text-sm font-600 text-ink">
+        <span className="inline-block h-3.5 w-3.5 bg-ink shrink-0" aria-hidden="true" />
         Pass
       </span>
     );
   }
-  if (status === "review") {
+  if (norm === "review" || norm === "refer") {
     return (
-      <span className="inline-flex items-center gap-1.5 text-sm font-600">
-        <span className="flex h-4 w-4 items-center justify-center border-[1.5px] border-ink" />
+      <span className="inline-flex items-center gap-1.5 text-sm font-600 text-[#B45309]">
+        <span
+          className="inline-block h-3.5 w-3.5 border-2 border-[#B45309] bg-transparent shrink-0"
+          aria-hidden="true"
+        />
         Review
       </span>
     );
   }
-  return (
-    <span className="inline-flex items-center gap-1.5 text-sm font-600 text-decline">
-      <span className="flex h-4 w-4 items-center justify-center text-decline">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+  if (norm === "fail" || norm === "decline") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-sm font-600 text-[#B42318]">
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#B42318"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          className="shrink-0"
+          aria-hidden="true"
+        >
+          <path d="M6 6l12 12M18 6L6 18" />
         </svg>
+        Fail
       </span>
-      Fail
-    </span>
-  );
+    );
+  }
+  return <span className="text-sm font-600 text-muted">{status || "—"}</span>;
 }

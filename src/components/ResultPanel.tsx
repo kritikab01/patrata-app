@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { ScoreResult, ExplainResult, AskResult } from "../types";
-import { formatINR, formatPct, formatMonths } from "../utils";
+import { formatINR, formatPct, formatMonths, formatNotice } from "../utils";
 import { postExplain, postAsk } from "../api";
-import { Spinner, ErrorBox, LoadingSkeleton, StatusMarker } from "./ui";
+import { Spinner, ErrorBox, LoadingSkeleton, StatusMarker, CardErrorBoundary } from "./ui";
 
 const decisionConfig = {
   APPROVE: {
@@ -36,7 +36,7 @@ const decisionConfig = {
 } as const;
 
 function DecisionSlab({ result }: { result: ScoreResult }) {
-  const cfg = decisionConfig[result.decision];
+  const cfg = decisionConfig[result.decision] || decisionConfig.REFER;
   return (
     <div className="rounded-card bg-ink p-6 text-white sm:p-8">
       <div className="flex items-start gap-4">
@@ -100,7 +100,7 @@ function DecisionSlab({ result }: { result: ScoreResult }) {
 }
 
 function Reasons({ reasons }: { reasons: string[] }) {
-  if (!reasons.length) return null;
+  if (!reasons || !reasons.length) return null;
   return (
     <div className="rounded-card border border-cardborder bg-white p-5 sm:p-6">
       <h3 className="font-archivo font-700 text-base text-ink">Why</h3>
@@ -118,7 +118,7 @@ function Reasons({ reasons }: { reasons: string[] }) {
 
 function RuleChecks({ checks }: { checks: ScoreResult["rule_checks"] }) {
   const [open, setOpen] = useState<number | null>(null);
-  if (!checks.length) return null;
+  if (!checks || !checks.length) return null;
   return (
     <div className="rounded-card border border-cardborder bg-white p-5 sm:p-6">
       <h3 className="font-archivo font-700 text-base text-ink">Policy checks</h3>
@@ -150,11 +150,14 @@ function RuleChecks({ checks }: { checks: ScoreResult["rule_checks"] }) {
 }
 
 function Drivers({ drivers }: { drivers: ScoreResult["drivers"] }) {
-  if (!drivers.length) return null;
+  if (!drivers || !drivers.length) return null;
   const maxImpact = Math.max(...drivers.map((d) => Math.abs(d.impact)), 0.01);
   return (
     <div className="rounded-card border border-cardborder bg-white p-5 sm:p-6">
       <h3 className="font-archivo font-700 text-base text-ink">What drove the score</h3>
+      <p className="mt-1 text-xs text-muted">
+        Each bar shows how much a factor pushed this application towards approval (green, right) or decline (red, left), compared with a typical applicant.
+      </p>
       <div className="mt-4 space-y-4">
         {drivers.map((d, i) => {
           const pct = (Math.abs(d.impact) / maxImpact) * 50;
@@ -260,23 +263,23 @@ function CounterfactualCard({
 }
 
 function Notices({ result }: { result: ScoreResult }) {
-  if (!result.flags.length && !result.warnings.length) return null;
+  if (!result.flags?.length && !result.warnings?.length) return null;
   return (
     <div className="space-y-2">
-      {result.warnings.map((w, i) => (
+      {result.warnings?.map((w, i) => (
         <div
           key={`w${i}`}
           className="rounded-btn border border-refer/30 bg-refer/5 p-3 text-sm text-refer"
         >
-          {w}
+          {formatNotice(w)}
         </div>
       ))}
-      {result.flags.map((f, i) => (
+      {result.flags?.map((f, i) => (
         <div
           key={`f${i}`}
           className="rounded-btn border border-cardborder bg-page p-3 text-sm text-muted"
         >
-          {f}
+          {formatNotice(f)}
         </div>
       ))}
     </div>
@@ -359,7 +362,7 @@ function ExplainCard({ resultId }: { resultId: string }) {
       ) : data ? (
         <div className={`mt-3 ${lang === "hi" ? "font-deva" : ""}`}>
           <p className="text-sm text-ink">{data.summary}</p>
-          {data.reasons.length > 0 && (
+          {data.reasons && data.reasons.length > 0 && (
             <ul className="mt-3 space-y-1.5">
               {data.reasons.map((r, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-ink">
@@ -369,16 +372,20 @@ function ExplainCard({ resultId }: { resultId: string }) {
               ))}
             </ul>
           )}
-          {data.next_steps.length > 0 && (
+          {data.next_steps && (
             <div className="mt-3">
               <p className="text-xs font-600 text-muted">Next steps</p>
-              <ul className="mt-1 space-y-1">
-                {data.next_steps.map((s, i) => (
-                  <li key={i} className="text-sm text-ink">
-                    {s}
-                  </li>
-                ))}
-              </ul>
+              {Array.isArray(data.next_steps) ? (
+                <ul className="mt-1 space-y-1">
+                  {data.next_steps.map((s, i) => (
+                    <li key={i} className="text-sm text-ink">
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-sm text-ink">{data.next_steps}</p>
+              )}
             </div>
           )}
           {data.source === "template" && (
@@ -418,30 +425,34 @@ function AskCard({ resultId }: { resultId: string }) {
 
   return (
     <div className="rounded-card border border-cardborder bg-white p-5 sm:p-6">
-      <h3 className="font-archivo font-700 text-base text-ink">Ask about this decision</h3>
-
-      <div className="mt-3 flex rounded-btn border border-cardborder p-0.5 w-fit">
-        <button
-          type="button"
-          onClick={() => setLang("en")}
-          className={`rounded-[8px] px-3 py-1 text-xs font-600 ${
-            lang === "en" ? "bg-ink text-white" : "text-muted"
-          }`}
-        >
-          EN
-        </button>
-        <button
-          type="button"
-          onClick={() => setLang("hi")}
-          className={`rounded-[8px] px-3 py-1 text-xs font-600 ${
-            lang === "hi" ? "bg-ink text-white" : "text-muted"
-          }`}
-        >
-          हिंदी
-        </button>
+      <div className="flex items-center justify-between">
+        <label htmlFor="ask_question_input" className="font-archivo font-700 text-base text-ink block">
+          Ask about this decision
+        </label>
+        <div className="flex rounded-btn border border-cardborder p-0.5 w-fit">
+          <button
+            type="button"
+            onClick={() => setLang("en")}
+            className={`rounded-[8px] px-3 py-1 text-xs font-600 ${
+              lang === "en" ? "bg-ink text-white" : "text-muted"
+            }`}
+          >
+            EN
+          </button>
+          <button
+            type="button"
+            onClick={() => setLang("hi")}
+            className={`rounded-[8px] px-3 py-1 text-xs font-600 ${
+              lang === "hi" ? "bg-ink text-white" : "text-muted"
+            }`}
+          >
+            हिंदी
+          </button>
+        </div>
       </div>
 
       <textarea
+        id="ask_question_input"
         className="mt-3 w-full rounded-btn border border-cardborder bg-white p-3 text-sm text-ink placeholder:text-muted/60"
         rows={3}
         value={question}
@@ -509,15 +520,33 @@ export function ResultPanel({
 }) {
   return (
     <div className="space-y-5">
-      <DecisionSlab result={result} />
-      <Reasons reasons={result.reasons} />
-      <RuleChecks checks={result.rule_checks} />
-      <Drivers drivers={result.drivers} />
-      <RepaymentRiskDrivers result={result} />
-      <CounterfactualCard result={result} onCheckWith={onCheckWith} />
-      <Notices result={result} />
-      <ExplainCard resultId={result.id} />
-      <AskCard resultId={result.id} />
+      <CardErrorBoundary>
+        <DecisionSlab result={result} />
+      </CardErrorBoundary>
+      <CardErrorBoundary>
+        <Reasons reasons={result.reasons} />
+      </CardErrorBoundary>
+      <CardErrorBoundary>
+        <RuleChecks checks={result.rule_checks} />
+      </CardErrorBoundary>
+      <CardErrorBoundary>
+        <Drivers drivers={result.drivers} />
+      </CardErrorBoundary>
+      <CardErrorBoundary>
+        <RepaymentRiskDrivers result={result} />
+      </CardErrorBoundary>
+      <CardErrorBoundary>
+        <CounterfactualCard result={result} onCheckWith={onCheckWith} />
+      </CardErrorBoundary>
+      <CardErrorBoundary>
+        <Notices result={result} />
+      </CardErrorBoundary>
+      <CardErrorBoundary>
+        <ExplainCard resultId={result.id} />
+      </CardErrorBoundary>
+      <CardErrorBoundary>
+        <AskCard resultId={result.id} />
+      </CardErrorBoundary>
     </div>
   );
 }

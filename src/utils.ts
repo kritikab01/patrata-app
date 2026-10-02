@@ -40,3 +40,25 @@ export function num(v: string): number {
   const n = parseFloat(v);
   return isNaN(n) ? 0 : n;
 }
+
+export function formatNotice(code: string): string {
+  if (!code) return "";
+  const known: Record<string, string> = {
+    approval_model_not_used:
+      "The approval model isn't used for this product, so the policy rules decided.",
+    model_policy_conflict:
+      "The approval model and the policy rules disagree, so a credit officer should review.",
+    outside_training_range:
+      "This applicant is unlike the data the model learned from. Treat the model score with caution.",
+    new_to_credit:
+      "No credit history, so the decision relies on income and policy rules.",
+  };
+  if (known[code]) {
+    return known[code];
+  }
+  const text = code.replace(/_/g, " ").trim();
+  if (!text) return "";
+  const sentence = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+  return sentence.endsWith(".") ? sentence : sentence + ".";
+}
+
