@@ -63,12 +63,16 @@ export function updateSavedCheck(id: string, updates: Partial<SavedCheck>) {
     const current = getSavedChecks();
     const updated = current.map((c) => (c.id === id ? { ...c, ...updates } : c));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  } catch {}
+  } catch {
+    /* ignore storage errors */
+  }
 }
 
 export function clearCheckHistory() {
   if (typeof window === "undefined") return;
   try {
     localStorage.removeItem(STORAGE_KEY);
-  } catch {}
+  } catch {
+    /* ignore storage errors */
+  }
 }

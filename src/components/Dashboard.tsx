@@ -6,8 +6,6 @@ import { Spinner, ErrorBox } from "./ui";
 import { Donut, Icon } from "./viz";
 import {
   ResponsiveContainer,
-  PieChart,
-  Pie,
   Cell,
   BarChart,
   Bar,

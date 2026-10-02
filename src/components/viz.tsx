@@ -189,11 +189,21 @@ export function Donut({
 export type Zone = { upTo: number; color: string; label: string };
 
 /** value and zone limits are 0..1 of the bar. A black marker shows the value. */
-export function ZoneBar({ value, zones, height = 12 }: { value: number; zones: Zone[]; height?: number }) {
-  const v = Math.min(Math.max(value, 0), 1);
+export function ZoneBar({
+  value,
+  zones,
+  height = 12,
+  width,
+}: {
+  value?: number | null;
+  zones: Zone[];
+  height?: number;
+  width?: string | number;
+}) {
+  const v = Math.min(Math.max(value ?? 0, 0), 1);
   let start = 0;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, width }}>
       <div style={{ position: "relative", height }}>
         <div style={{ display: "flex", height, borderRadius: height / 2, overflow: "hidden" }}>
           {zones.map((z) => {

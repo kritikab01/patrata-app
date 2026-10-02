@@ -23,7 +23,7 @@ export type EmploymentType =
 
 export type RuleCheck = {
   label: string;
-  status: "pass" | "review" | "fail";
+  status: "pass" | "review" | "fail" | "refer";
   value: string | number | null;
   threshold: string | number | null;
   detail: string;
@@ -52,10 +52,17 @@ export type Counterfactual = {
 
 export type ScoreResult = {
   id: string;
+  request_id?: string;
   decision: "APPROVE" | "REFER" | "DECLINE";
   status: string;
   product_name: string;
   variant_name: string;
+  product?: string;
+  variant?: string;
+  loan_amount?: number;
+  tenure_months?: number;
+  loan_term?: number;
+  created_at?: string;
   approval_probability: number | null;
   approval_model_note: string;
   emi_estimate: number | null;
@@ -264,6 +271,7 @@ export type AssistantResponse = {
   sources?: AssistantSource[];
   kind?: "grounded" | "general" | "calculator" | "guard" | string;
   calc?: Record<string, unknown> | null;
+  in_scope?: boolean;
 };
 
 export type ChatTurn = {
@@ -286,6 +294,8 @@ export type ChatMessage = {
   kind?: string;
   calc?: Record<string, unknown> | null;
   error?: boolean;
+  timestamp?: string | number;
+  in_scope?: boolean;
 };
 
 export type BatchRow = {

@@ -5,7 +5,7 @@ import { Icon, Meter, type IconName } from "./viz";
 import { inr, inWords, emi } from "../lib/calc";
 import { postSimulate } from "../api";
 
-export const SAMPLE_APPLICANT: Partial<FormState> = {
+export const SAMPLE_APPLICANT: FormState = {
   product: "personal",
   variant: "pl_salaried",
   age: "32",
@@ -32,7 +32,7 @@ export const SAMPLE_APPLICANT: Partial<FormState> = {
   bank_asset_value: "200000",
 };
 
-export const BORDERLINE_APPLICANT: Partial<FormState> = {
+export const BORDERLINE_APPLICANT: FormState = {
   ...SAMPLE_APPLICANT,
   cibil_score: "690",
 };
