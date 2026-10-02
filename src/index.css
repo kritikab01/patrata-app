@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Figtree:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Figtree', system-ui, sans-serif;
+}
+
+body {
+  background-color: #F4F4F5;
+  color: #0A0A0A;
+}
+
+.font-deva {
+  font-family: 'Noto Sans Devanagari', sans-serif;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #1E4FD8;
+  border-color: #1E4FD8;
+}
+
+input, select, textarea {
+  font-family: 'Figtree', system-ui, sans-serif;
+}
+
+/* Smooth scroll for result reveal */
+html {
+  scroll-behavior: smooth;
+}
