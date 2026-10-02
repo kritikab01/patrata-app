@@ -35,6 +35,66 @@ const decisionConfig = {
   },
 } as const;
 
+function renderTextWithCitations(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  // Match [1], [2], 【1】, 【2】 or citations
+  const regex = /(\[\d+\]|【\d+】|\*\*[^*]+\*\*|_[^_]+_|`[^`]+`|\*[^*]+\*)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index));
+    }
+    const token = match[0];
+    if (
+      (token.startsWith("[") && token.endsWith("]")) ||
+      (token.startsWith("【") && token.endsWith("】"))
+    ) {
+      const num = token.replace(/[[\]【】]/g, "");
+      parts.push(
+        <sup
+          key={match.index}
+          className="inline-flex items-center justify-center font-700 text-[10px] text-brand bg-brand-50 border border-brand/30 rounded px-1 ml-0.5"
+        >
+          [{num}]
+        </sup>
+      );
+    } else if (token.startsWith("**") && token.endsWith("**")) {
+      parts.push(
+        <strong key={match.index} className="font-700 text-ink">
+          {token.slice(2, -2)}
+        </strong>
+      );
+    } else if (token.startsWith("`") && token.endsWith("`")) {
+      parts.push(
+        <code
+          key={match.index}
+          className="rounded bg-page border border-cardborder px-1 py-0.5 text-xs font-mono text-ink"
+        >
+          {token.slice(1, -1)}
+        </code>
+      );
+    } else if (
+      (token.startsWith("*") && token.endsWith("*")) ||
+      (token.startsWith("_") && token.endsWith("_"))
+    ) {
+      parts.push(
+        <em key={match.index} className="italic">
+          {token.slice(1, -1)}
+        </em>
+      );
+    } else {
+      parts.push(token);
+    }
+    lastIndex = match.index + token.length;
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+  return parts.length > 0 ? parts : [text];
+}
+
 function DecisionSlab({ result }: { result: ScoreResult }) {
   const cfg = decisionConfig[result.decision] || decisionConfig.REFER;
   return (
@@ -95,6 +155,191 @@ function DecisionSlab({ result }: { result: ScoreResult }) {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+// Result Actions: Email this result, Copy summary, Add follow-up to calendar, Print or save as PDF
+function getResultSummaryText(result: ScoreResult): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const resultLink = `${origin}/?id=${encodeURIComponent(result.id)}`;
+
+  const lines = [
+    `Patrata Loan Pre-Screening: ${result.decision}`,
+    `Product: ${result.product_name} (${result.variant_name})`,
+  ];
+
+  if (result.emi_estimate != null) {
+    lines.push(`Estimated EMI: ${formatINR(result.emi_estimate)}/month`);
+  }
+  if (result.foir != null) {
+    lines.push(`EMI Burden (FOIR): ${formatPct(result.foir)}`);
+  }
+  if (result.approval_probability != null) {
+    lines.push(`Approval Probability: ${formatPct(result.approval_probability)}`);
+  }
+  if (result.repayment_risk?.probability != null) {
+    lines.push(`Default Risk: ${formatPct(result.repayment_risk.probability)}`);
+  }
+
+  if (result.reasons && result.reasons.length > 0) {
+    lines.push(``, `Reasons:`);
+    result.reasons.slice(0, 4).forEach((r, i) => {
+      lines.push(`${i + 1}. ${r}`);
+    });
+  }
+
+  lines.push(``, `Result link: ${resultLink}`);
+
+  let text = lines.join("\n");
+  // Enforce under 1,500 characters so mailto: links never fail in browsers
+  if (text.length > 1400) {
+    text = text.substring(0, 1390) + "\n...";
+  }
+  return text;
+}
+
+function ResultActions({ result }: { result: ScoreResult }) {
+  const [copied, setCopied] = useState(false);
+
+  const summaryText = getResultSummaryText(result);
+  const subject = `Patrata Loan Decision: ${result.product_name} - ${result.decision}`;
+  const emailHref = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(summaryText)}`;
+
+  const calendarTitle = `Patrata follow-up: ${result.product_name}`;
+  const calendarDetails = `Decision summary: ${result.decision} for ${result.product_name} (${result.variant_name}). Estimated EMI: ${result.emi_estimate != null ? formatINR(result.emi_estimate) : "—"}. Application ID: ${result.id}`;
+  const calendarHref = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(calendarTitle)}&details=${encodeURIComponent(calendarDetails)}`;
+
+  async function handleCopy() {
+    let success = false;
+    if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(summaryText);
+        success = true;
+      } catch {
+        success = false;
+      }
+    }
+
+    if (!success && typeof document !== "undefined") {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = summaryText;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        textarea.style.top = "0";
+        textarea.setAttribute("readonly", "");
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        success = document.execCommand("copy");
+        document.body.removeChild(textarea);
+      } catch {
+        success = false;
+      }
+    }
+
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  function handlePrint() {
+    const isInsideFrame = typeof window !== "undefined" && window.self !== window.top;
+    if (isInsideFrame) {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set("print", "1");
+        if (result.id) {
+          url.searchParams.set("id", result.id);
+        }
+        url.searchParams.set("tab", "check");
+        window.open(url.toString(), "_blank", "noopener,noreferrer");
+      } catch {
+        window.print();
+      }
+    } else {
+      window.print();
+    }
+  }
+
+  return (
+    <div className="rounded-card border border-cardborder bg-white p-4 sm:p-5 no-print">
+      <p className="text-xs font-600 text-muted mb-3">Share or export decision</p>
+      <div className="flex flex-wrap gap-2.5 items-center">
+        {/* Email this result */}
+        <a
+          href={emailHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            // Ensure no host navigation
+            e.stopPropagation();
+          }}
+          className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-btn border border-cardborder bg-white px-4 text-xs font-700 text-ink hover:border-brand hover:text-brand transition-colors"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+            <polyline points="22,6 12,13 2,6" />
+          </svg>
+          Email this result
+        </a>
+
+        {/* Copy summary button */}
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-btn border border-cardborder bg-white px-4 text-xs font-700 text-ink hover:border-brand hover:text-brand transition-colors relative"
+        >
+          {copied ? (
+            <>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-approve">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span className="text-approve">Copied!</span>
+            </>
+          ) : (
+            <>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+              <span>Copy summary</span>
+            </>
+          )}
+        </button>
+
+        {/* Add follow-up to calendar */}
+        <a
+          href={calendarHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-btn border border-cardborder bg-white px-4 text-xs font-700 text-ink hover:border-brand hover:text-brand transition-colors"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          Add follow-up to calendar
+        </a>
+
+        {/* Print or save as PDF */}
+        <button
+          type="button"
+          onClick={handlePrint}
+          className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-btn border border-cardborder bg-white px-4 text-xs font-700 text-ink hover:border-brand hover:text-brand transition-colors"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="6 9 6 2 18 2 18 9" />
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+            <rect x="6" y="14" width="12" height="8" />
+          </svg>
+          Print or save as PDF
+        </button>
+      </div>
     </div>
   );
 }
@@ -406,7 +651,10 @@ function AskCard({ resultId }: { resultId: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const chips = ["Why this result?", "What would improve my chances?", "Can you just approve it?"];
+  const chips =
+    lang === "hi"
+      ? ["यह नतीजा क्यों?", "मेरे मौके कैसे बढ़ें?", "क्या आप इसे मंज़ूर कर सकते हैं?"]
+      : ["Why this result?", "What would improve my chances?", "Can you just approve it?"];
 
   async function ask(q: string) {
     if (!q.trim()) return;
@@ -417,17 +665,17 @@ function AskCard({ resultId }: { resultId: string }) {
       const res = await postAsk(resultId, q, lang);
       setData(res);
     } catch {
-      setError("Could not get an answer. Please try again.");
+      setError(lang === "hi" ? "उत्तर नहीं मिल सका। कृपया पुनः प्रयास करें।" : "Could not get an answer. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="rounded-card border border-cardborder bg-white p-5 sm:p-6">
+    <div className="rounded-card border border-cardborder bg-white p-5 sm:p-6 ask-card no-print">
       <div className="flex items-center justify-between">
         <label htmlFor="ask_question_input" className="font-archivo font-700 text-base text-ink block">
-          Ask about this decision
+          {lang === "hi" ? "इस निर्णय के बारे में पूछें" : "Ask about this decision"}
         </label>
         <div className="flex rounded-btn border border-cardborder p-0.5 w-fit">
           <button
@@ -453,11 +701,17 @@ function AskCard({ resultId }: { resultId: string }) {
 
       <textarea
         id="ask_question_input"
-        className="mt-3 w-full rounded-btn border border-cardborder bg-white p-3 text-sm text-ink placeholder:text-muted/60"
+        className={`mt-3 w-full rounded-btn border border-cardborder bg-white p-3 text-sm text-ink placeholder:text-muted/60 ${
+          lang === "hi" ? "font-deva" : ""
+        }`}
         rows={3}
         value={question}
         onChange={(e) => setQuestion(e.target.value)}
-        placeholder="Ask a question about this decision…"
+        placeholder={
+          lang === "hi"
+            ? "इस निर्णय के बारे में कोई प्रश्न पूछें…"
+            : "Ask a question about this decision…"
+        }
       />
 
       <div className="mt-2 flex flex-wrap gap-2">
@@ -469,7 +723,9 @@ function AskCard({ resultId }: { resultId: string }) {
               setQuestion(c);
               ask(c);
             }}
-            className="rounded-md border border-cardborder bg-page px-3 py-1.5 text-xs font-500 text-ink hover:border-brand hover:text-brand"
+            className={`rounded-md border border-cardborder bg-page px-3 py-1.5 text-xs font-500 text-ink hover:border-brand hover:text-brand transition-colors ${
+              lang === "hi" ? "font-deva" : ""
+            }`}
           >
             {c}
           </button>
@@ -484,10 +740,10 @@ function AskCard({ resultId }: { resultId: string }) {
       >
         {loading ? (
           <>
-            <Spinner /> Asking…
+            <Spinner /> {lang === "hi" ? "पूछ रहे हैं…" : "Asking…"}
           </>
         ) : (
-          "Ask"
+          lang === "hi" ? "पूछें" : "Ask"
         )}
       </button>
 
@@ -499,10 +755,10 @@ function AskCard({ resultId }: { resultId: string }) {
 
       {data && (
         <div className={`mt-4 rounded-btn border border-cardborder bg-page p-4 ${lang === "hi" ? "font-deva" : ""}`}>
-          <p className="text-sm text-ink">{data.answer}</p>
+          <p className="text-sm text-ink">{renderTextWithCitations(data.answer)}</p>
           {data.in_scope === false && (
             <p className="mt-2 text-xs font-600 text-refer">
-              Outside what Patrata can do
+              {lang === "hi" ? "Patrata के दायरे से बाहर" : "Outside what Patrata can do"}
             </p>
           )}
         </div>
@@ -518,10 +774,34 @@ export function ResultPanel({
   result: ScoreResult;
   onCheckWith: (amount: number, termMonths: number) => void;
 }) {
+  const currentDateFormatted = new Date().toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 result-panel-container">
+      {/* Print-only Header */}
+      <div className="hidden print:block mb-4 pb-3 border-b border-cardborder">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-archivo font-800 text-xl text-ink">Patrata pre-screening result</h1>
+            <p className="text-xs text-muted mt-0.5">
+              Application ID: {result.id} · Date: {currentDateFormatted}
+            </p>
+          </div>
+          <div className="h-8 w-8 rounded-btn bg-ink flex items-center justify-center text-white font-archivo font-800 text-base">
+            प
+          </div>
+        </div>
+      </div>
+
       <CardErrorBoundary>
         <DecisionSlab result={result} />
+      </CardErrorBoundary>
+      <CardErrorBoundary>
+        <ResultActions result={result} />
       </CardErrorBoundary>
       <CardErrorBoundary>
         <Reasons reasons={result.reasons} />

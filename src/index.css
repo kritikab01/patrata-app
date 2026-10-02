@@ -33,3 +33,57 @@ input, select, textarea {
 html {
   scroll-behavior: smooth;
 }
+
+/* Print Styles: print only the result cards */
+@media print {
+  header,
+  footer,
+  nav,
+  form,
+  button,
+  a,
+  .no-print,
+  .ask-card,
+  .about-section,
+  .fixed,
+  .badge-floating {
+    display: none !important;
+  }
+  
+  body, html {
+    background: #FFFFFF !important;
+    color: #0A0A0A !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  .result-panel-container {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .rounded-card {
+    background: #FFFFFF !important;
+    border: 1px solid #D4D4D8 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 1rem !important;
+  }
+
+  /* Keep DecisionSlab dark or high contrast when printing */
+  .rounded-card.bg-ink {
+    background: #0A0A0A !important;
+    color: #FFFFFF !important;
+  }
+}
