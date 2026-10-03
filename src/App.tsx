@@ -433,11 +433,11 @@ export default function App() {
 
     getApplication(id)
       .then((data) => {
-        if (cancelled) return;
+        if (!cancelled) return;
         setResult(data);
       })
       .catch((err: unknown) => {
-        if (cancelled) return;
+        if (!cancelled) return;
         const status = (err as { status?: number })?.status;
         if (status === 404) {
           setExpiredResult(true);
@@ -625,6 +625,7 @@ export default function App() {
         }
         setApiErrors(fieldErrors);
         focusFirstError(fieldErrors);
+        setSubmitError("Please fix: " + apiErr.errors.map((e) => e.message).join(" · "));
       } else {
         setSubmitError("Could not reach the Patrata engine. Please try again.");
       }

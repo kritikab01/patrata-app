@@ -177,6 +177,14 @@ const AMOUNT_RANGES = [
   { id: "10L+", label: "10L+", min: 1000000, max: 10000000, defaultVal: 2500000 },
 ];
 
+/* Sensible starting values per product, clamped to the chosen variant's limits. */
+const PRODUCT_DEFAULTS: Record<string, { amount: number; months: number }> = {
+  personal: { amount: 500000, months: 36 },
+  home: { amount: 3000000, months: 240 },
+  consumer: { amount: 50000, months: 12 },
+  vehicle: { amount: 800000, months: 60 },
+};
+
 function Stepper({
   value,
   onChange,
@@ -250,10 +258,27 @@ export function LoanForm({
   const [simLoading, setSimLoading] = useState(false);
   const [simIs422, setSimIs422] = useState(false);
 
+  const [localErrors, setLocalErrors] = useState<ValidationErrors>({});
+
   const fieldErrors: Record<string, string> = useMemo(
-    () => ({ ...errors, ...apiErrors }),
-    [errors, apiErrors]
+    () => ({ ...errors, ...localErrors, ...apiErrors }),
+    [errors, localErrors, apiErrors]
   );
+
+  // Messages shown in the banner above the buttons (covers errors on fields that are not visible).
+  const errorMessages = useMemo(
+    () => Array.from(new Set(Object.values(fieldErrors).filter(Boolean))),
+    [fieldErrors]
+  );
+
+  // Once the user fixes a field, drop its local error.
+  useEffect(() => {
+    if (Object.keys(localErrors).length === 0) return;
+    const full = validateForm(form);
+    const next: ValidationErrors = {};
+    for (const k of Object.keys(localErrors)) if (full[k]) next[k] = full[k];
+    if (Object.keys(next).length !== Object.keys(localErrors).length) setLocalErrors(next);
+  }, [form, localErrors]);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -293,8 +318,17 @@ export function LoanForm({
     return AMOUNT_RANGES.find((r) => r.id === currentRangeId) || AMOUNT_RANGES[2];
   }, [currentRangeId]);
 
-  const sliderMin = Math.max(selectedRangeObj.min, variantAmountMin);
-  const sliderMax = Math.min(selectedRangeObj.max, variantAmountMax);
+  // Only offer range chips that overlap this variant's allowed amounts.
+  const visibleRanges = useMemo(
+    () => AMOUNT_RANGES.filter((r) => r.max > variantAmountMin && r.min < variantAmountMax),
+    [variantAmountMin, variantAmountMax]
+  );
+  let sliderMin = Math.max(selectedRangeObj.min, variantAmountMin);
+  let sliderMax = Math.min(selectedRangeObj.id === "10L+" ? variantAmountMax : selectedRangeObj.max, variantAmountMax);
+  if (sliderMin >= sliderMax) {
+    sliderMin = variantAmountMin;
+    sliderMax = variantAmountMax;
+  }
 
   // Auto-jump to step on engine 422 errors
   useEffect(() => {
@@ -394,29 +428,66 @@ export function LoanForm({
   }, [form.loan_amount, form.annual_rate, form.tenure_months]);
 
   // Product selection handler
+  // Fill amount, tenure, rate (and property / asset value) so the shown values are the sent values.
+  function applyVariantDefaults(prodId: string, v: { criteria: unknown } | undefined, clampOnly = false) {
+    const c = (v?.criteria || {}) as Record<string, unknown>;
+    const aMin = typeof c.amount_min === "number" ? c.amount_min : 25000;
+    const aMax = typeof c.amount_max === "number" ? c.amount_max : 10000000;
+    const tMin = typeof c.tenure_months_min === "number" ? c.tenure_months_min : 6;
+    const tMax = typeof c.tenure_months_max === "number" ? c.tenure_months_max : 360;
+    const rr = Array.isArray(c.rate_range) ? (c.rate_range as number[]) : null;
+    const pref = PRODUCT_DEFAULTS[prodId] || PRODUCT_DEFAULTS.personal;
+    const clamp = (x: number, lo: number, hi: number) => Math.min(Math.max(x, lo), hi);
+
+    const curAmt = num(form.loan_amount);
+    const amt = clampOnly && curAmt > 0 ? clamp(curAmt, aMin, aMax) : clamp(pref.amount, aMin, aMax);
+    onChange("loan_amount", String(amt));
+
+    const curMonths = num(form.tenure_months);
+    const months = clampOnly && curMonths > 0 ? clamp(curMonths, tMin, tMax) : clamp(pref.months, tMin, tMax);
+    onChange("tenure_months", String(months));
+
+    if (rr && (!clampOnly || !form.annual_rate)) {
+      const rate = rr[1] === 0 ? 0 : Math.min(Math.round((rr[0] + 1.5) * 10) / 10, rr[1]);
+      onChange("annual_rate", String(rate));
+    }
+    if (prodId === "home" && (!clampOnly || !form.property_value)) {
+      onChange("property_value", String(Math.round(amt / 0.75 / 10000) * 10000));
+    }
+    if ((prodId === "vehicle" || prodId === "consumer") && (!clampOnly || !form.asset_price)) {
+      onChange("asset_price", String(Math.round(amt / 0.85 / 1000) * 1000));
+    }
+  }
+
   function handleSelectProduct(prodId: string) {
     onChange("product", prodId);
     const prod = products.find((p) => p.id === prodId);
     if (prod && prod.variants.length > 0) {
       onChange("variant", prod.variants[0].id);
-      const firstCrit = prod.variants[0].criteria as Record<string, unknown> | undefined;
-      if (firstCrit?.annual_rate) {
-        onChange("annual_rate", String(firstCrit.annual_rate));
-      }
+      applyVariantDefaults(prodId, prod.variants[0]);
     }
   }
+
+  // The first product looks selected on screen, so make it selected in the data too.
+  useEffect(() => {
+    if (!form.product && products.length > 0) handleSelectProduct(products[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, form.product]);
 
   // Range chip selection handler
   function handleRangeChipSelect(rangeId: string) {
     const r = AMOUNT_RANGES.find((x) => x.id === rangeId);
     if (!r) return;
-    const clamped = Math.min(Math.max(r.defaultVal, r.min), r.max);
+    const lo = Math.max(r.min, variantAmountMin);
+    const hi = Math.min(r.id === "10L+" ? variantAmountMax : r.max, variantAmountMax);
+    const clamped = lo < hi ? Math.min(Math.max(r.defaultVal, lo), hi) : variantAmountMin;
     onChange("loan_amount", String(clamped));
   }
 
   // Navigation between steps with validation
   function handleNext(targetStep: 2 | 3) {
     const stepErrors = validateStep(step, form);
+    setLocalErrors(stepErrors);
     if (Object.keys(stepErrors).length > 0) {
       const firstField = Object.keys(stepErrors)[0];
       const el =
@@ -430,6 +501,26 @@ export function LoanForm({
     }
     setStep(targetStep);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // Validate every step before sending; if something is missing, go to that step and say what.
+  function handleSubmitClick() {
+    const full = validateForm(form);
+    if (Object.keys(full).length > 0) {
+      setLocalErrors(full);
+      const first = Object.keys(full)[0];
+      setStep(getStepForField(first));
+      setTimeout(() => {
+        const el = document.querySelector(`[name="${first}"]`) || document.querySelector(`#field-${first}`);
+        if (el && typeof (el as HTMLElement).focus === "function") {
+          (el as HTMLElement).focus();
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 120);
+      return;
+    }
+    setLocalErrors({});
+    onSubmit();
   }
 
   function handleSaveDraft() {
@@ -611,10 +702,7 @@ export function LoanForm({
                         type="button"
                         onClick={() => {
                           onChange("variant", v.id);
-                          const crit = v.criteria as Record<string, unknown> | undefined;
-                          if (crit?.annual_rate) {
-                            onChange("annual_rate", String(crit.annual_rate));
-                          }
+                          applyVariantDefaults(form.product || activeProduct?.id || "personal", v, true);
                         }}
                         className={`text-xs px-3.5 py-1.5 rounded-full font-700 transition-colors ${
                           isSelected
@@ -652,7 +740,7 @@ export function LoanForm({
 
             {/* Range chips: 0–1L, 1–3L, 3–5L, 5–10L, 10L+ */}
             <div className="flex flex-wrap gap-2">
-              {AMOUNT_RANGES.map((r) => {
+              {visibleRanges.map((r) => {
                 const isSelected = currentRangeId === r.id;
                 return (
                   <button
@@ -1414,6 +1502,12 @@ export function LoanForm({
 
       {/* ================= STICKY FOOTER NAVIGATION ================= */}
       <div className="sticky bottom-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3.5 bg-white/95 backdrop-blur-md border-t border-cardborder shadow-md">
+        {errorMessages.length > 0 && (
+          <div role="alert" className="max-w-[1100px] mx-auto mb-3 rounded-[10px] border border-[#F3D0CB] bg-[#FBECEA] px-3 py-2 text-xs font-600 text-[#B42318]">
+            <span className="font-bold">Please fix: </span>
+            {errorMessages.slice(0, 4).join(" · ")}
+          </div>
+        )}
         <div className="max-w-[1100px] mx-auto flex items-center justify-between gap-3">
           {step === 1 && (
             <>
@@ -1475,7 +1569,7 @@ export function LoanForm({
               <button
                 type="button"
                 disabled={submitting || !consent}
-                onClick={onSubmit}
+                onClick={handleSubmitClick}
                 title={!consent ? "Please agree to the pre-screening consent statement to check eligibility" : undefined}
                 className="flex-1 sm:flex-initial h-11 min-h-[44px] px-7 rounded-btn bg-[#1E4FD8] text-xs font-archivo font-bold text-white hover:bg-[#1A44BD] disabled:opacity-40 transition-colors shadow-sm inline-flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
               >
