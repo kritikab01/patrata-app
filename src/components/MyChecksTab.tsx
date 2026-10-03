@@ -54,6 +54,10 @@ export function MyChecksScreen({
         const full = await getApplication(item.id);
         if (full) {
           updateSavedCheck(item.id, {
+            product_name: full.product_name || (item.product_name !== "Loan Check" ? item.product_name : "Personal loan"),
+            variant_name: full.variant_name || item.variant_name,
+            loan_amount: full.loan_amount ?? item.loan_amount,
+            months: full.tenure_months ?? item.months,
             decision: full.decision,
             status: full.decision.toLowerCase(),
             emi_estimate: full.emi_estimate,
@@ -267,6 +271,11 @@ export function MyChecksScreen({
                     { label: "Decision", state: "done", tone: "decline" },
                   ];
 
+            const prodName =
+              check.product_name && check.product_name !== "Loan Check"
+                ? check.product_name
+                : "Personal loan";
+
             return (
               <div
                 key={check.id}
@@ -276,13 +285,13 @@ export function MyChecksScreen({
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <IconTile
-                      name={getProductIcon(check.product_name)}
+                      name={getProductIcon(prodName)}
                       tint={tint}
                       size={44}
                     />
                     <div>
                       <h4 className="font-archivo font-bold text-base text-ink leading-tight">
-                        {check.product_name} · {inr(check.loan_amount)}
+                        {prodName} · {inr(check.loan_amount)}
                       </h4>
                       <p className="text-xs text-muted mt-0.5">
                         {check.months} months · {getRelativeTime(check.created_at)}

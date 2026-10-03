@@ -23,8 +23,22 @@ async function fetchJSON<T>(url: string, init?: RequestInit, timeoutMs = 30000):
   try {
     const res = await fetch(url, { ...init, signal: controller.signal });
     if (res.status === 422) {
-      const body = await res.json();
-      const err: ApiError = { status: 422, errors: body.errors ?? [] };
+      let body: Record<string, unknown> | null = null;
+      try {
+        body = (await res.json()) as Record<string, unknown>;
+      } catch {
+        /* ignore */
+      }
+      let errors: ValidationError[] = [];
+      if (Array.isArray(body?.errors)) {
+        errors = body.errors as ValidationError[];
+      } else if (Array.isArray(body?.detail)) {
+        errors = (body.detail as { loc?: unknown[]; msg?: string }[]).map((d) => ({
+          field: Array.isArray(d.loc) ? String(d.loc[d.loc.length - 1]) : String(d.loc || ""),
+          message: d.msg || "Invalid value",
+        }));
+      }
+      const err: ApiError = { status: 422, errors, message: (body?.message as string) || "Validation failed" };
       throw err;
     }
     if (res.status === 401) {

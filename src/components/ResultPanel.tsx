@@ -104,43 +104,6 @@ function getResultSummaryText(result: ScoreResult): string {
   return text;
 }
 
-// Fallback documents by product category
-function getDefaultDocuments(product: string, variant: string): string[] {
-  const p = (product || "").toLowerCase();
-  const v = (variant || "").toLowerCase();
-
-  if (p.includes("home") || p.includes("prop")) {
-    return [
-      "Property title deeds, chain documents and allotment letter",
-      "Approved building plan and builder NOC or registered agreement to sale",
-      "Last 6 months bank statements of all co-applicants",
-      "Last 2 years Form 16 / ITR with computation of income",
-    ];
-  }
-  if (p.includes("vehicle") || p.includes("car") || p.includes("auto")) {
-    return [
-      "Vehicle dealer proforma invoice and price quotation",
-      "Identity and current address KYC proofs (PAN / Aadhaar / Voter ID)",
-      "Last 6 months bank statement showing regular income credits",
-      "Latest 3 months salary slips or business income proof",
-    ];
-  }
-  if (v.includes("self") || v.includes("business")) {
-    return [
-      "Last 2 years ITR with audited balance sheet & P&L statements",
-      "Business vintage proof (GST registration or Udyam certificate)",
-      "Last 12 months primary current bank account statements",
-      "KYC documents of proprietor, partners, or directors",
-    ];
-  }
-  return [
-    "Latest 3 months payslips with employer seal / digital verification",
-    "Last 6 months salary account bank statements in original PDF",
-    "Form 16 / Latest ITR acknowledgment for the previous assessment year",
-    "Valid government photo ID and current residential address proof",
-  ];
-}
-
 export function ResultPanel({
   result,
   products = [],
@@ -176,23 +139,42 @@ export function ResultPanel({
     return (result.id || "APP").substring(0, 8).toUpperCase();
   }, [result.id]);
 
-  // Documents required for variant
+  // Documents required for variant from /api/products
   const documentsList = useMemo(() => {
-    const prod = products.find(
-      (p) => p.id === result.product || p.id === (result as { product_id?: string }).product_id
-    );
-    const variantObj = prod?.variants?.find(
-      (v) => v.id === result.variant || v.name === result.variant_name
-    );
+    const resVariantId = (result as { variant_id?: string }).variant_id;
+    let variantObj = products
+      .flatMap((p) => p.variants || [])
+      .find(
+        (v) =>
+          v.id === result.variant ||
+          v.id === resVariantId ||
+          v.name === result.variant_name
+      );
 
-    const crit = variantObj?.criteria as Record<string, unknown> | undefined;
-    if (Array.isArray(crit?.documents) && crit.documents.length > 0) {
-      return crit.documents.map(String);
+    if (!variantObj) {
+      const prod = products.find(
+        (p) =>
+          p.id === result.product ||
+          p.id === (result as { product_id?: string }).product_id ||
+          p.name === result.product_name
+      );
+      variantObj =
+        prod?.variants?.find(
+          (v) =>
+            v.id === result.variant ||
+            v.id === resVariantId ||
+            v.name === result.variant_name
+        ) || prod?.variants?.[0];
     }
-    if (Array.isArray(variantObj?.features) && variantObj.features.length > 0) {
-      return variantObj.features;
+
+    const docs =
+      (variantObj as { documents?: string[] })?.documents ||
+      ((variantObj?.criteria as Record<string, unknown> | undefined)?.documents as string[] | undefined);
+
+    if (Array.isArray(docs) && docs.length > 0) {
+      return docs.map(String);
     }
-    return getDefaultDocuments(result.product_name, result.variant_name);
+    return [];
   }, [products, result]);
 
   // Copy summary handler
@@ -248,17 +230,25 @@ export function ResultPanel({
     return [...nonPassChecks, ...passChecks.slice(0, 3)];
   }, [nonPassChecks, passChecks, showAllChecks]);
 
-  // Helped vs Worked Against items
+  // Helped vs Worked Against items - deduplicated by label
   const helpedItems: { label: string; value: string }[] = useMemo(() => {
     const list: { label: string; value: string }[] = [];
+    const seen = new Set<string>();
+    const add = (label: string, value: string) => {
+      const key = (label || "").trim().toLowerCase();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        list.push({ label, value });
+      }
+    };
     result.repayment_risk?.drivers?.forEach((d) => {
       if (d.direction === "lowers_risk") {
-        list.push({ label: d.label, value: d.value });
+        add(d.label, d.value);
       }
     });
     result.drivers?.forEach((d) => {
       if (d.direction === "towards_approve") {
-        list.push({ label: d.label, value: d.value });
+        add(d.label, d.value);
       }
     });
     return list;
@@ -266,14 +256,22 @@ export function ResultPanel({
 
   const workedAgainstItems: { label: string; value: string }[] = useMemo(() => {
     const list: { label: string; value: string }[] = [];
+    const seen = new Set<string>();
+    const add = (label: string, value: string) => {
+      const key = (label || "").trim().toLowerCase();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        list.push({ label, value });
+      }
+    };
     result.repayment_risk?.drivers?.forEach((d) => {
       if (d.direction === "raises_risk") {
-        list.push({ label: d.label, value: d.value });
+        add(d.label, d.value);
       }
     });
     result.drivers?.forEach((d) => {
       if (d.direction === "towards_decline") {
-        list.push({ label: d.label, value: d.value });
+        add(d.label, d.value);
       }
     });
     return list;
@@ -763,27 +761,29 @@ export function ResultPanel({
           )}
 
           {/* ================= 7. "KEEP THESE READY FOR THE LENDER" ================= */}
-          <div className="rounded-card border border-cardborder bg-white p-5 sm:p-6 space-y-4 shadow-xs">
-            <div>
-              <h3 className="font-archivo font-bold text-base text-ink">
-                Keep these ready for the lender
-              </h3>
-              <p className="text-xs text-muted mt-0.5">
-                Standard documents required for final underwriting verification
-              </p>
-            </div>
+          {documentsList.length > 0 && (
+            <div className="rounded-card border border-cardborder bg-white p-5 sm:p-6 space-y-4 shadow-xs">
+              <div>
+                <h3 className="font-archivo font-bold text-base text-ink">
+                  Keep these ready for the lender
+                </h3>
+                <p className="text-xs text-muted mt-0.5">
+                  Standard documents required for final underwriting verification
+                </p>
+              </div>
 
-            <div className="space-y-3">
-              {documentsList.map((doc, idx) => (
-                <div key={idx} className="flex items-start gap-3 p-3 rounded-card bg-page border border-cardborder">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink text-white font-archivo font-bold text-xs">
-                    {idx + 1}
-                  </span>
-                  <p className="text-xs text-ink font-500 leading-snug pt-0.5">{doc}</p>
-                </div>
-              ))}
+              <div className="space-y-3">
+                {documentsList.map((doc, idx) => (
+                  <div key={idx} className="flex items-start gap-3 p-3 rounded-card bg-page border border-cardborder">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink text-white font-archivo font-bold text-xs">
+                      {idx + 1}
+                    </span>
+                    <p className="text-xs text-ink font-500 leading-snug pt-0.5">{doc}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* RIGHT COLUMN: Plain language explanation, Ask AI, Notices & Desk review */}

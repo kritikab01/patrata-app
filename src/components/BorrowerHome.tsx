@@ -113,8 +113,6 @@ function getLatestSavedCheckId(): string | null {
         if (typeof first === "object" && first && typeof first.id === "string") return first.id;
       }
     }
-    const single = localStorage.getItem("patrata_request_id");
-    if (single && single.trim()) return single.trim();
   } catch {
     /* ignore */
   }
@@ -376,10 +374,16 @@ export function BorrowerHome({
 
     for (const v of variants) {
       const crit = v.criteria as Record<string, unknown> | undefined;
-      const rate = typeof crit?.annual_rate === "number" ? crit.annual_rate : null;
-      if (rate === 0) hasZeroRate = true;
-      if (rate != null) {
-        if (minRate == null || rate < minRate) minRate = rate;
+      let lowestRate: number | null = null;
+      if (Array.isArray(crit?.rate_range) && crit.rate_range.length > 0) {
+        const val = Number(crit.rate_range[0]);
+        if (!isNaN(val)) lowestRate = val;
+      } else if (typeof crit?.annual_rate === "number") {
+        lowestRate = crit.annual_rate;
+      }
+      if (lowestRate === 0) hasZeroRate = true;
+      if (lowestRate != null) {
+        if (minRate == null || lowestRate < minRate) minRate = lowestRate;
       }
     }
 
@@ -521,7 +525,7 @@ export function BorrowerHome({
         <div className="rounded-[18px] border border-[#E4E4E7] bg-white p-4 sm:p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between border-b border-[#E4E4E7] pb-2 mb-2">
             <h3 className="text-[11px] font-bold tracking-wider text-muted uppercase">
-              YOUR LAST CHECK
+              {lang === "hi" ? "आपकी पिछली जाँच" : "YOUR LAST CHECK"}
             </h3>
             {lastCheck && <DecisionPill decision={lastCheck.decision} />}
           </div>
@@ -630,7 +634,9 @@ export function BorrowerHome({
 
       {/* 2. QUICK ACTIONS: 2×2 grid of white tiles */}
       <div>
-        <h3 className="font-archivo font-bold text-base text-ink mb-3">Quick actions</h3>
+        <h3 className="font-archivo font-bold text-base text-ink mb-3">
+          {lang === "hi" ? "त्वरित विकल्प" : "Quick actions"}
+        </h3>
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
           {/* Tile 1: Check eligibility */}
           <div
@@ -708,7 +714,9 @@ export function BorrowerHome({
 
       {/* 3. LOAN PRODUCTS: Horizontal scroll */}
       <div>
-        <h3 className="font-archivo font-bold text-base text-ink mb-3">Loan products</h3>
+        <h3 className="font-archivo font-bold text-base text-ink mb-3">
+          {lang === "hi" ? "लोन प्रकार" : "Loan products"}
+        </h3>
         <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {products.map((p) => {
             const iconName = getProductIcon(p.id);
@@ -744,10 +752,25 @@ export function BorrowerHome({
       {/* 4. WORD OF THE DAY (with History and Learning Streak) */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-archivo font-bold text-base text-ink">Learn in a minute</h3>
+          <h3 className="font-archivo font-bold text-base text-ink">
+            {lang === "hi" ? "एक मिनट में सीखें" : "Learn in a minute"}
+          </h3>
           {streak > 0 && (
-            <span className="text-xs font-semibold text-[#1E4FD8] bg-[#EEF3FF] px-2.5 py-0.5 rounded-full flex items-center gap-1">
-              <span>🔥</span>
+            <span className="text-xs font-semibold text-[#1E4FD8] bg-[#EEF3FF] px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-[#F97316]"
+                aria-hidden="true"
+              >
+                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z" />
+              </svg>
               <span>{streak}-day learning streak</span>
             </span>
           )}
@@ -896,8 +919,8 @@ export function BorrowerHome({
 
       {/* MODAL 1: WHAT SHOULD WE CALL YOU? (Welcome Bottom Sheet) */}
       {nameSheetOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 animate-in fade-in">
-          <div className="w-full max-w-md rounded-t-[20px] sm:rounded-[20px] border border-cardborder bg-white p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 animate-in fade-in">
+          <div className="w-full max-w-md rounded-t-[20px] sm:rounded-[20px] border border-cardborder bg-white p-6 pb-8 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-cardborder pb-3">
               <div>
                 <h3 className="font-archivo font-bold text-lg text-ink">Welcome to Patrata</h3>
@@ -961,7 +984,7 @@ export function BorrowerHome({
 
       {/* MODAL 2: WORDS YOU'VE LEARNED SHEET */}
       {learnedModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 animate-in fade-in">
           <div className="w-full max-w-lg rounded-t-[20px] sm:rounded-[20px] border border-cardborder bg-white p-6 shadow-2xl max-h-[85vh] flex flex-col space-y-4">
             <div className="flex items-center justify-between border-b border-cardborder pb-3">
               <div className="flex items-center gap-2">

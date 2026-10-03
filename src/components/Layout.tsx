@@ -229,7 +229,7 @@ export function BorrowerBottomNav({
   return (
     <nav
       aria-label="Mobile Navigation Bar"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 h-[76px] bg-white border-t border-cardborder shadow-lg flex items-center justify-around px-2"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-[76px] bg-white border-t border-cardborder shadow-lg flex items-center justify-around px-2"
     >
       {tabs.map((tab) => {
         const isActive = activeTab === tab.key;

@@ -30,6 +30,7 @@ import { Assistant } from "./components/Assistant";
 import { ModelCard } from "./components/ModelCard";
 import { Spinner } from "./components/ui";
 import { DeskPinModal } from "./components/DeskPinModal";
+import { saveCheckToHistory } from "./lib/storage";
 
 type HealthState = "checking" | "waking" | "ready" | "unavailable";
 type ProductsState =
@@ -46,11 +47,18 @@ const TAB_KEY = "patrata_tab";
 function loadDraft(): FormState {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
-    if (raw) return { ...EMPTY_FORM, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const merged = { ...EMPTY_FORM, ...parsed };
+      if (!merged.no_credit_history && (!merged.cibil_score || merged.cibil_score === "")) {
+        merged.cibil_score = "750";
+      }
+      return merged;
+    }
   } catch {
     /* ignore */
   }
-  return EMPTY_FORM;
+  return { ...EMPTY_FORM, cibil_score: "750" };
 }
 
 function saveDraft(form: FormState) {
@@ -579,6 +587,21 @@ export default function App() {
       const res = await postScore(body);
       setResult(res);
       saveCheckIdToHistory(res.id);
+      saveCheckToHistory({
+        id: res.id,
+        product_name: res.product_name || "Personal loan",
+        variant_name: res.variant_name || "Standard",
+        loan_amount: res.loan_amount ?? num(form.loan_amount) ?? 500000,
+        months: res.tenure_months ?? num(form.tenure_months) ?? 36,
+        decision: res.decision,
+        status: res.decision.toLowerCase(),
+        created_at: new Date().toISOString(),
+        emi_estimate: res.emi_estimate,
+        reasons: res.reasons,
+        counterfactual: res.counterfactual
+          ? { possible: res.counterfactual.possible, summary: res.counterfactual.summary }
+          : null,
+      });
       lastFormRef.current = formSignature(form);
       setLastForm(form);
 

@@ -52,7 +52,7 @@ export const EMPTY_FORM: FormState = {
   asset_price: "",
   tenure_months: "",
   annual_rate: "",
-  cibil_score: "",
+  cibil_score: "750",
   no_credit_history: false,
   existing_loans_count: "0",
   outstanding_debt: "0",
@@ -248,6 +248,12 @@ export function LoanForm({
   // Live simulation state
   const [simResult, setSimResult] = useState<SimulateResult | null>(null);
   const [simLoading, setSimLoading] = useState(false);
+  const [simIs422, setSimIs422] = useState(false);
+
+  const fieldErrors: Record<string, string> = useMemo(
+    () => ({ ...errors, ...apiErrors }),
+    [errors, apiErrors]
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -317,6 +323,7 @@ export function LoanForm({
 
     if (loanAmt <= 0 || tenureMonths <= 0 || annualRate <= 0 || !form.product) {
       setSimResult(null);
+      setSimIs422(false);
       return;
     }
 
@@ -358,9 +365,16 @@ export function LoanForm({
       postSimulate(simBody)
         .then((res) => {
           setSimResult(res);
+          setSimIs422(false);
         })
-        .catch(() => {
-          /* ignore live preview errors */
+        .catch((err: unknown) => {
+          const status = (err as { status?: number })?.status;
+          if (status === 422) {
+            setSimIs422(true);
+            setSimResult(null);
+          } else {
+            setSimIs422(false);
+          }
         })
         .finally(() => setSimLoading(false));
     }, 500);
@@ -580,8 +594,8 @@ export function LoanForm({
               })}
             </div>
 
-            {errors.product && (
-              <p className="text-xs text-decline font-600">{errors.product}</p>
+            {fieldErrors.product && (
+              <p className="text-xs text-decline font-600">{fieldErrors.product}</p>
             )}
 
             {/* Variant Chips */}
@@ -613,6 +627,10 @@ export function LoanForm({
                     );
                   })}
                 </div>
+
+                {fieldErrors.variant && (
+                  <p className="text-xs text-decline font-600">{fieldErrors.variant}</p>
+                )}
 
                 {activeVariant?.for && (
                   <p className="text-[13px] text-muted leading-relaxed pt-1">
@@ -682,8 +700,8 @@ export function LoanForm({
               </div>
             </div>
 
-            {errors.loan_amount && (
-              <p className="text-xs text-decline font-600">{errors.loan_amount}</p>
+            {fieldErrors.loan_amount && (
+              <p className="text-xs text-decline font-600">{fieldErrors.loan_amount}</p>
             )}
 
             {/* Property value (Home loans) */}
@@ -708,11 +726,13 @@ export function LoanForm({
                     value={form.property_value}
                     onChange={(e) => onChange("property_value", e.target.value)}
                     placeholder="e.g. 5000000"
-                    className="w-full h-11 rounded-btn border border-cardborder bg-white pl-8 pr-3 text-sm text-ink font-600"
+                    className={`w-full h-11 rounded-btn border ${
+                      fieldErrors.property_value ? "border-decline ring-1 ring-decline" : "border-cardborder"
+                    } bg-white pl-8 pr-3 text-sm text-ink font-600`}
                   />
                 </div>
-                {errors.property_value && (
-                  <p className="text-xs text-decline font-600">{errors.property_value}</p>
+                {fieldErrors.property_value && (
+                  <p className="text-xs text-decline font-600">{fieldErrors.property_value}</p>
                 )}
               </div>
             )}
@@ -739,11 +759,13 @@ export function LoanForm({
                     value={form.asset_price}
                     onChange={(e) => onChange("asset_price", e.target.value)}
                     placeholder="e.g. 800000"
-                    className="w-full h-11 rounded-btn border border-cardborder bg-white pl-8 pr-3 text-sm text-ink font-600"
+                    className={`w-full h-11 rounded-btn border ${
+                      fieldErrors.asset_price ? "border-decline ring-1 ring-decline" : "border-cardborder"
+                    } bg-white pl-8 pr-3 text-sm text-ink font-600`}
                   />
                 </div>
-                {errors.asset_price && (
-                  <p className="text-xs text-decline font-600">{errors.asset_price}</p>
+                {fieldErrors.asset_price && (
+                  <p className="text-xs text-decline font-600">{fieldErrors.asset_price}</p>
                 )}
               </div>
             )}
@@ -807,8 +829,8 @@ export function LoanForm({
               </div>
             )}
 
-            {errors.tenure_months && (
-              <p className="text-xs text-decline font-600">{errors.tenure_months}</p>
+            {fieldErrors.tenure_months && (
+              <p className="text-xs text-decline font-600">{fieldErrors.tenure_months}</p>
             )}
           </div>
 
@@ -834,7 +856,9 @@ export function LoanForm({
                 value={form.annual_rate}
                 onChange={(e) => onChange("annual_rate", e.target.value)}
                 placeholder="e.g. 10.5"
-                className="w-full h-11 rounded-btn border border-cardborder bg-white px-3 pr-10 text-sm text-ink font-600"
+                className={`w-full h-11 rounded-btn border ${
+                  fieldErrors.annual_rate ? "border-decline ring-1 ring-decline" : "border-cardborder"
+                } bg-white px-3 pr-10 text-sm text-ink font-600`}
               />
               <span className="absolute right-3 top-3 text-muted text-xs font-bold">% p.a.</span>
             </div>
@@ -843,8 +867,8 @@ export function LoanForm({
               Typical for this loan: {rateRange[0]}% to {rateRange[1]}%
             </p>
 
-            {errors.annual_rate && (
-              <p className="text-xs text-decline font-600">{errors.annual_rate}</p>
+            {fieldErrors.annual_rate && (
+              <p className="text-xs text-decline font-600">{fieldErrors.annual_rate}</p>
             )}
           </div>
         </div>
@@ -874,9 +898,11 @@ export function LoanForm({
                   value={form.age}
                   onChange={(e) => onChange("age", e.target.value)}
                   placeholder="e.g. 32"
-                  className="w-full h-11 rounded-btn border border-cardborder bg-white px-3 text-sm text-ink font-600"
+                  className={`w-full h-11 rounded-btn border ${
+                    fieldErrors.age ? "border-decline ring-1 ring-decline" : "border-cardborder"
+                  } bg-white px-3 text-sm text-ink font-600`}
                 />
-                {errors.age && <p className="text-xs text-decline font-600 mt-1">{errors.age}</p>}
+                {fieldErrors.age && <p className="text-xs text-decline font-600 mt-1">{fieldErrors.age}</p>}
               </div>
 
               <div>
@@ -890,6 +916,9 @@ export function LoanForm({
                   min={0}
                   max={10}
                 />
+                {fieldErrors.no_of_dependents && (
+                  <p className="text-xs text-decline font-600 mt-1">{fieldErrors.no_of_dependents}</p>
+                )}
               </div>
             </div>
 
@@ -917,6 +946,9 @@ export function LoanForm({
                   );
                 })}
               </div>
+              {fieldErrors.employment_type && (
+                <p className="text-xs text-decline font-600 mt-1">{fieldErrors.employment_type}</p>
+              )}
             </div>
 
             {/* Years in current job/profession */}
@@ -933,8 +965,13 @@ export function LoanForm({
                 value={form.years_in_job}
                 onChange={(e) => onChange("years_in_job", e.target.value)}
                 placeholder="e.g. 5"
-                className="w-full h-11 rounded-btn border border-cardborder bg-white px-3 text-sm text-ink font-600"
+                className={`w-full h-11 rounded-btn border ${
+                  fieldErrors.years_in_job ? "border-decline ring-1 ring-decline" : "border-cardborder"
+                } bg-white px-3 text-sm text-ink font-600`}
               />
+              {fieldErrors.years_in_job && (
+                <p className="text-xs text-decline font-600 mt-1">{fieldErrors.years_in_job}</p>
+              )}
             </div>
 
             {/* Annual Income */}
@@ -958,14 +995,16 @@ export function LoanForm({
                   value={form.income_annum}
                   onChange={(e) => onChange("income_annum", e.target.value)}
                   placeholder="e.g. 1200000"
-                  className="w-full h-11 rounded-btn border border-cardborder bg-white pl-8 pr-3 text-sm text-ink font-600"
+                  className={`w-full h-11 rounded-btn border ${
+                    fieldErrors.income_annum ? "border-decline ring-1 ring-decline" : "border-cardborder"
+                  } bg-white pl-8 pr-3 text-sm text-ink font-600`}
                 />
               </div>
               <p className="text-[11px] text-muted">
                 Pre-tax annual income from salary, business, or other declared sources.
               </p>
-              {errors.income_annum && (
-                <p className="text-xs text-decline font-600">{errors.income_annum}</p>
+              {fieldErrors.income_annum && (
+                <p className="text-xs text-decline font-600">{fieldErrors.income_annum}</p>
               )}
             </div>
 
@@ -990,12 +1029,17 @@ export function LoanForm({
                   value={form.existing_emi_monthly}
                   onChange={(e) => onChange("existing_emi_monthly", e.target.value)}
                   placeholder="e.g. 8000"
-                  className="w-full h-11 rounded-btn border border-cardborder bg-white pl-8 pr-3 text-sm text-ink font-600"
+                  className={`w-full h-11 rounded-btn border ${
+                    fieldErrors.existing_emi_monthly ? "border-decline ring-1 ring-decline" : "border-cardborder"
+                  } bg-white pl-8 pr-3 text-sm text-ink font-600`}
                 />
               </div>
               <p className="text-[11px] text-muted">
                 Total monthly outflow towards ongoing personal, car, home or card EMIs.
               </p>
+              {fieldErrors.existing_emi_monthly && (
+                <p className="text-xs text-decline font-600">{fieldErrors.existing_emi_monthly}</p>
+              )}
             </div>
           </div>
         </div>
@@ -1073,8 +1117,8 @@ export function LoanForm({
                   </div>
                 </div>
 
-                {errors.cibil_score && (
-                  <p className="text-xs text-decline font-600">{errors.cibil_score}</p>
+                {fieldErrors.cibil_score && (
+                  <p className="text-xs text-decline font-600">{fieldErrors.cibil_score}</p>
                 )}
               </div>
             )}
@@ -1092,6 +1136,9 @@ export function LoanForm({
                   min={0}
                   max={20}
                 />
+                {fieldErrors.existing_loans_count && (
+                  <p className="text-xs text-decline font-600 mt-1">{fieldErrors.existing_loans_count}</p>
+                )}
               </div>
 
               <div>
@@ -1105,6 +1152,9 @@ export function LoanForm({
                   min={0}
                   max={10}
                 />
+                {fieldErrors.new_loans_12m && (
+                  <p className="text-xs text-decline font-600 mt-1">{fieldErrors.new_loans_12m}</p>
+                )}
               </div>
             </div>
 
@@ -1129,9 +1179,14 @@ export function LoanForm({
                   value={form.outstanding_debt}
                   onChange={(e) => onChange("outstanding_debt", e.target.value)}
                   placeholder="e.g. 120000"
-                  className="w-full h-11 rounded-btn border border-cardborder bg-white pl-8 pr-3 text-sm text-ink font-600"
+                  className={`w-full h-11 rounded-btn border ${
+                    fieldErrors.outstanding_debt ? "border-decline ring-1 ring-decline" : "border-cardborder"
+                  } bg-white pl-8 pr-3 text-sm text-ink font-600`}
                 />
               </div>
+              {fieldErrors.outstanding_debt && (
+                <p className="text-xs text-decline font-600">{fieldErrors.outstanding_debt}</p>
+              )}
             </div>
 
             {/* Credit history years & Overdue now */}
@@ -1149,8 +1204,13 @@ export function LoanForm({
                   value={form.credit_history_years}
                   onChange={(e) => onChange("credit_history_years", e.target.value)}
                   placeholder="e.g. 8"
-                  className="w-full h-11 rounded-btn border border-cardborder bg-white px-3 text-sm text-ink font-600"
+                  className={`w-full h-11 rounded-btn border ${
+                    fieldErrors.credit_history_years ? "border-decline ring-1 ring-decline" : "border-cardborder"
+                  } bg-white px-3 text-sm text-ink font-600`}
                 />
+                {fieldErrors.credit_history_years && (
+                  <p className="text-xs text-decline font-600 mt-1">{fieldErrors.credit_history_years}</p>
+                )}
               </div>
 
               <div>
@@ -1325,6 +1385,10 @@ export function LoanForm({
                     Decline risk high · {Math.round((simResult.approval_probability || 0.25) * 100)}%
                   </span>
                 )
+              ) : simIs422 ? (
+                <span className="text-[#FBBF24]">
+                  Complete the highlighted fields for a preview
+                </span>
               ) : estimatedEmi > 0 ? (
                 "Eligibility estimating…"
               ) : (

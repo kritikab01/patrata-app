@@ -28,7 +28,7 @@ export function getSavedChecks(): SavedCheck[] {
       if (typeof item === "string") {
         return {
           id: item,
-          product_name: "Loan Check",
+          product_name: "Personal loan",
           variant_name: "Standard",
           loan_amount: 500000,
           months: 36,
@@ -37,7 +37,11 @@ export function getSavedChecks(): SavedCheck[] {
           created_at: new Date().toISOString(),
         } as SavedCheck;
       }
-      return item as SavedCheck;
+      const saved = item as SavedCheck;
+      if (!saved.product_name || saved.product_name === "Loan Check") {
+        saved.product_name = "Personal loan";
+      }
+      return saved;
     });
   } catch {
     return [];
