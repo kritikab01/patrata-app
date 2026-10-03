@@ -615,6 +615,41 @@ export function Assistant({
           <Icon name="arrow" size={16} color="#71717A" />
         </button>
       </div>
+
+      {/* ================= 4. GRIEVANCE OFFICER CARD ================= */}
+      <div className="rounded-card border border-cardborder bg-white p-5 shadow-xs">
+        <div className="flex items-start gap-3.5">
+          <div className="h-10 w-10 rounded-btn bg-[#EEF3FF] text-[#1E4FD8] flex items-center justify-center shrink-0 mt-0.5">
+            <Icon name="shield" size={20} color="#1E4FD8" />
+          </div>
+          <div className="space-y-1.5 text-xs text-muted leading-relaxed">
+            <h4 className="font-archivo font-bold text-sm text-ink">
+              Grievance Redressal
+            </h4>
+            <p className="text-ink">
+              <span className="font-bold">Grievance Redressal Officer:</span> Kritika Bhachawat,{" "}
+              <a
+                href="mailto:kritikabhachawat001@gmail.com"
+                className="text-[#1E4FD8] font-bold hover:underline"
+              >
+                kritikabhachawat001@gmail.com
+              </a>
+            </p>
+            <p>
+              We reply within 7 working days. If unresolved within 30 days, you can approach the{" "}
+              <a
+                href="https://cms.rbi.org.in"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#1E4FD8] font-bold hover:underline inline-flex items-center gap-0.5"
+              >
+                <span>RBI Integrated Ombudsman (cms.rbi.org.in)</span>
+                <Icon name="arrow" size={11} color="#1E4FD8" />
+              </a>.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

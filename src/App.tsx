@@ -29,6 +29,7 @@ import { Compare } from "./components/Compare";
 import { Assistant } from "./components/Assistant";
 import { ModelCard } from "./components/ModelCard";
 import { Spinner } from "./components/ui";
+import { DeskPinModal } from "./components/DeskPinModal";
 
 type HealthState = "checking" | "waking" | "ready" | "unavailable";
 type ProductsState =
@@ -376,6 +377,29 @@ export default function App() {
     updateNav(newMode, defaultTab, result?.id);
   }, [result, updateNav]);
 
+  const [deskPinModalOpen, setDeskPinModalOpen] = useState(false);
+  const [deskPinError, setDeskPinError] = useState<string | null>(null);
+
+  const requestSwitchToDesk = useCallback(() => {
+    const existingPin = typeof sessionStorage !== "undefined" ? sessionStorage.getItem("patrata_desk_pin") : null;
+    if (existingPin && existingPin.length === 4) {
+      handleModeChange("desk");
+    } else {
+      setDeskPinError(null);
+      setDeskPinModalOpen(true);
+    }
+  }, [handleModeChange]);
+
+  const handleDeskPinSuccess = useCallback((pin: string) => {
+    try {
+      sessionStorage.setItem("patrata_desk_pin", pin);
+    } catch {
+      /* ignore */
+    }
+    setDeskPinModalOpen(false);
+    handleModeChange("desk");
+  }, [handleModeChange]);
+
   // Popstate listener for browser back/forward
   useEffect(() => {
     function handlePopState() {
@@ -690,7 +714,7 @@ export default function App() {
             onTabChange={(t) => handleTabChange(t)}
             lang={lang}
             onLangToggle={() => setLang((l) => (l === "en" ? "hi" : "en"))}
-            onSwitchToDesk={() => handleModeChange("desk")}
+            onSwitchToDesk={requestSwitchToDesk}
             onOpenAbout={() => setAboutModalOpen(true)}
           />
         ) : (
@@ -720,7 +744,7 @@ export default function App() {
             onTabChange={(t) => handleTabChange(t)}
             lang={lang}
             onLangToggle={() => setLang((l) => (l === "en" ? "hi" : "en"))}
-            onSwitchToDesk={() => handleModeChange("desk")}
+            onSwitchToDesk={requestSwitchToDesk}
             onOpenAbout={() => setAboutModalOpen(true)}
           />
         ) : (
@@ -751,7 +775,7 @@ export default function App() {
             onTabChange={(t) => handleTabChange(t)}
             lang={lang}
             onLangToggle={() => setLang((l) => (l === "en" ? "hi" : "en"))}
-            onSwitchToDesk={() => handleModeChange("desk")}
+            onSwitchToDesk={requestSwitchToDesk}
             onOpenAbout={() => setAboutModalOpen(true)}
           />
         ) : (
@@ -880,7 +904,7 @@ export default function App() {
             onTabChange={(t) => handleTabChange(t)}
             lang={lang}
             onLangToggle={() => setLang((l) => (l === "en" ? "hi" : "en"))}
-            onSwitchToDesk={() => handleModeChange("desk")}
+            onSwitchToDesk={requestSwitchToDesk}
             onOpenAbout={() => setAboutModalOpen(true)}
           />
 
@@ -904,7 +928,7 @@ export default function App() {
                   setHelpQuestion(q);
                   handleTabChange("help");
                 }}
-                onSwitchToDesk={() => handleModeChange("desk")}
+                onSwitchToDesk={requestSwitchToDesk}
                 onOpenAbout={() => setAboutModalOpen(true)}
               />
             )}
@@ -999,6 +1023,17 @@ export default function App() {
         isOpen={aboutModalOpen}
         onClose={() => setAboutModalOpen(false)}
         modelVersion={result?.model_version}
+      />
+
+      {/* Lender Desk Access PIN Modal */}
+      <DeskPinModal
+        isOpen={deskPinModalOpen}
+        initialError={deskPinError}
+        onSuccess={handleDeskPinSuccess}
+        onCancel={() => {
+          setDeskPinModalOpen(false);
+          setDeskPinError(null);
+        }}
       />
     </div>
   );

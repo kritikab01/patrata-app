@@ -4,6 +4,7 @@ import { getReviewQueue, postReviewAgent, postReview, getApplication } from "../
 import { formatINR } from "../utils";
 import { Spinner, ErrorBox, CardErrorBoundary } from "./ui";
 import { ResultPanel } from "./ResultPanel";
+import { DeskPinModal } from "./DeskPinModal";
 
 type QueueState =
   | { status: "loading" }
@@ -207,15 +208,20 @@ function FinalDecisionCard({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
 
   const minNote = 10;
   const canSubmit = decision !== null && note.length >= minNote && reviewer.trim().length > 0 && !submitting;
 
-  async function submit() {
+  async function submit(overridePin?: string) {
     if (!canSubmit || decision === null) return;
     setSubmitting(true);
     setError(null);
     try {
+      if (overridePin) {
+        sessionStorage.setItem("patrata_desk_pin", overridePin);
+      }
       await postReview(applicationId, {
         final_decision: decision,
         note,
@@ -223,8 +229,20 @@ function FinalDecisionCard({
       });
       setSuccess(true);
       setTimeout(onSubmitted, 800);
-    } catch {
-      setError("Could not record the decision. Please try again.");
+    } catch (err: unknown) {
+      const apiErr = err as { status?: number; message?: string };
+      if (apiErr?.status === 401) {
+        try {
+          sessionStorage.removeItem("patrata_desk_pin");
+        } catch {
+          /* ignore */
+        }
+        setError("Wrong PIN. Please enter the correct lender desk PIN.");
+        setPinError("Wrong PIN");
+        setPinModalOpen(true);
+      } else {
+        setError("Could not record the decision. Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -313,7 +331,7 @@ function FinalDecisionCard({
 
       <button
         type="button"
-        onClick={submit}
+        onClick={() => submit()}
         disabled={!canSubmit}
         className="mt-4 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-btn bg-ink px-6 font-archivo font-700 text-white hover:bg-ink/90 disabled:opacity-50"
       >
@@ -325,6 +343,19 @@ function FinalDecisionCard({
           "Record final decision"
         )}
       </button>
+
+      <DeskPinModal
+        isOpen={pinModalOpen}
+        initialError={pinError}
+        onSuccess={(newPin) => {
+          setPinModalOpen(false);
+          setPinError(null);
+          submit(newPin);
+        }}
+        onCancel={() => {
+          setPinModalOpen(false);
+        }}
+      />
     </div>
   );
 }

@@ -265,3 +265,24 @@ export function calculateStreak(dates: string[], todayKey: string): number {
   }
   return count;
 }
+
+/* ---------- BORROWER PRE-SCREENING CONSENT ---------- */
+export const CONSENT_KEY = "patrata_borrower_consent";
+
+export function getConsent(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(CONSENT_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function saveConsent(agreed: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(CONSENT_KEY, agreed ? "true" : "false");
+  } catch {
+    /* ignore storage errors */
+  }
+}

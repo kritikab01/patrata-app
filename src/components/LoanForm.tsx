@@ -3,6 +3,7 @@ import type { Product, FormState, EmploymentType, SimulateResult, ScoreBody } fr
 import { num } from "../utils";
 import { Icon, Meter, type IconName } from "./viz";
 import { inr, inWords, emi } from "../lib/calc";
+import { getConsent, saveConsent } from "../lib/storage";
 import { postSimulate } from "../api";
 
 export const SAMPLE_APPLICANT: FormState = {
@@ -242,6 +243,7 @@ export function LoanForm({
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [showAssets, setShowAssets] = useState(false);
   const [savedDraftToast, setSavedDraftToast] = useState(false);
+  const [consent, setConsent] = useState(getConsent);
 
   // Live simulation state
   const [simResult, setSimResult] = useState<SimulateResult | null>(null);
@@ -1261,6 +1263,25 @@ export function LoanForm({
                 </div>
               )}
             </div>
+
+            {/* Borrower consent before eligibility check */}
+            <div className="mt-6 pt-5 border-t border-cardborder">
+              <label className="flex items-start gap-3 cursor-pointer select-none rounded-card border border-cardborder bg-page/80 p-3.5 sm:p-4 hover:border-brand/40 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setConsent(checked);
+                    saveConsent(checked);
+                  }}
+                  className="mt-0.5 h-4 w-4 rounded border-cardborder text-brand focus:ring-brand shrink-0 cursor-pointer"
+                />
+                <span className="text-xs text-muted leading-relaxed">
+                  I agree that the numbers I enter are used to pre-screen this loan, and that a summary is sent to a third-party AI provider for the explanation. No name, PAN, Aadhaar or phone is collected.
+                </span>
+              </label>
+            </div>
           </div>
         </div>
       )}
@@ -1389,9 +1410,10 @@ export function LoanForm({
               </button>
               <button
                 type="button"
-                disabled={submitting}
+                disabled={submitting || !consent}
                 onClick={onSubmit}
-                className="flex-1 sm:flex-initial h-11 min-h-[44px] px-7 rounded-btn bg-[#1E4FD8] text-xs font-archivo font-bold text-white hover:bg-[#1A44BD] disabled:opacity-50 transition-colors shadow-sm inline-flex items-center justify-center gap-2"
+                title={!consent ? "Please agree to the pre-screening consent statement to check eligibility" : undefined}
+                className="flex-1 sm:flex-initial h-11 min-h-[44px] px-7 rounded-btn bg-[#1E4FD8] text-xs font-archivo font-bold text-white hover:bg-[#1A44BD] disabled:opacity-40 transition-colors shadow-sm inline-flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <span>Evaluating loan…</span>

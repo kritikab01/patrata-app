@@ -27,6 +27,17 @@ async function fetchJSON<T>(url: string, init?: RequestInit, timeoutMs = 30000):
       const err: ApiError = { status: 422, errors: body.errors ?? [] };
       throw err;
     }
+    if (res.status === 401) {
+      let msg = "Lender desk PIN required";
+      try {
+        const body = await res.json();
+        if (body.detail) msg = body.detail;
+      } catch {
+        /* ignore */
+      }
+      const err: ApiError = { status: 401, message: msg };
+      throw err;
+    }
     if (!res.ok) {
       throw new Error(`Request failed (${res.status})`);
     }
@@ -103,9 +114,14 @@ export async function postReviewAgent(id: string): Promise<ReviewAgentResult> {
 }
 
 export async function postReview(id: string, body: ReviewBody): Promise<unknown> {
+  const pin = typeof sessionStorage !== "undefined" ? sessionStorage.getItem("patrata_desk_pin") || "" : "";
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (pin) {
+    headers["X-Desk-Key"] = pin;
+  }
   return fetchJSON(`${ENGINE_URL}/api/applications/${id}/review`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   });
 }
