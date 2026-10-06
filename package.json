@@ -1,7 +1,15 @@
 {
-  "name": "patrata-loan-prescreening",
+  "name": "patrata-app",
+  "version": "1.0.0",
+  "description": "Patrata: explainable loan pre-screening for Indian borrowers and lenders (React PWA front end).",
+  "author": "Kritika Bhachawat",
+  "license": "MIT",
+  "homepage": "https://patrata-loan-screener.netlify.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kritikab01/patrata-app.git"
+  },
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 3000",
@@ -11,7 +19,6 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.57.4",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.50.0",

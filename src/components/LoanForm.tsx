@@ -469,10 +469,22 @@ export function LoanForm({
   }
 
   // The first product looks selected on screen, so make it selected in the data too.
+  // Also fill any empty amount / tenure / rate (e.g. when another screen pre-selected the product).
   useEffect(() => {
-    if (!form.product && products.length > 0) handleSelectProduct(products[0].id);
+    if (products.length === 0) return;
+    if (!form.product) {
+      handleSelectProduct(products[0].id);
+      return;
+    }
+    if (!form.loan_amount || !form.tenure_months || form.annual_rate === "") {
+      const prod = products.find((p) => p.id === form.product) || products[0];
+      const v = prod.variants.find((x) => x.id === form.variant) || prod.variants[0];
+      if (!v) return;
+      if (form.variant !== v.id) onChange("variant", v.id);
+      applyVariantDefaults(prod.id, v, true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, form.product]);
+  }, [products, form.product, form.variant]);
 
   // Range chip selection handler
   function handleRangeChipSelect(rangeId: string) {

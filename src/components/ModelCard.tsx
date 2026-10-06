@@ -91,19 +91,13 @@ function formatPolicyValue(key: string, val: unknown): string {
 
 function formatAccuracy(evalData?: ModelCardResponse["assistant_retrieval_eval"]): string {
   if (!evalData) return "—";
-  const val = evalData.top1_hits ?? evalData.accuracy;
-  if (val == null) return "—";
-  if (typeof val === "number") {
-    if (evalData.total_questions && evalData.total_questions > 0 && val > 1) {
-      const pct = (val / evalData.total_questions) * 100;
-      return `${Math.round(pct)}%`;
-    }
-    if (val <= 1 && val >= 0) {
-      return formatPct(val);
-    }
-    return `${Math.round(val)}%`;
-  }
-  return String(val);
+  const e = evalData as Record<string, unknown>;
+  const total = Number(e.questions ?? e.total_questions ?? 0);
+  const hits = e.top1_hits;
+  if (typeof hits === "number" && total > 0) return `${Math.round((hits / total) * 100)}% (${hits}/${total})`;
+  const acc = e.accuracy;
+  if (typeof acc === "number") return acc <= 1 ? `${Math.round(acc * 100)}%` : `${Math.round(acc)}%`;
+  return "—";
 }
 
 function ModelItemCard({
